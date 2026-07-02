@@ -54,14 +54,9 @@ struct InfoPlistContainerView: View {
     
     @State private var selectedMode: InfoPlistMode = .semantic
     
-    // Parent level cache to persist formatting output between tab switches
+    // Parent level cache to persist raw output between tab switches
     @State private var xmlString: String = ""
-    @State private var highlightedXML: AttributedString = AttributedString("")
-    @State private var isXMLLoading = false
-    
     @State private var jsonString: String = ""
-    @State private var highlightedJSON: AttributedString = AttributedString("")
-    @State private var isJSONLoading = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -85,16 +80,12 @@ struct InfoPlistContainerView: View {
                 case .rawJSON:
                     InfoPlistRawView(
                         plist: plist,
-                        jsonString: $jsonString,
-                        highlightedJSON: $highlightedJSON,
-                        isLoading: $isJSONLoading
+                        jsonString: $jsonString
                     )
                 case .rawXML:
                     InfoPlistRawXMLView(
                         plist: plist,
-                        xmlString: $xmlString,
-                        highlightedXML: $highlightedXML,
-                        isLoading: $isXMLLoading
+                        xmlString: $xmlString
                     )
                 }
             }
@@ -227,7 +218,6 @@ struct PlistNodeRow: View {
 }
 
 // MARK: - Mode 1.5: Raw XML View
-// MARK: - Mode 1.5: Raw XML View
 struct InfoPlistRawXMLView: View {
     let plist: [String: Any]
     
@@ -235,8 +225,6 @@ struct InfoPlistRawXMLView: View {
     @State private var isWrapped = true
     
     @Binding var xmlString: String
-    @Binding var highlightedXML: AttributedString
-    @Binding var isLoading: Bool
     
     var body: some View {
         ScrollView {
@@ -274,47 +262,29 @@ struct InfoPlistRawXMLView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                if isLoading {
-                    HStack {
-                        Spacer()
-                        ProgressView("Formatting XML...")
-                            .padding()
-                        Spacer()
-                    }
+                if isWrapped {
+                    Text(xmlString)
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
                 } else {
-                    if isWrapped {
-                        Text(highlightedXML)
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        Text(xmlString)
+                            .font(.system(size: 11, design: .monospaced))
                             .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
-                            .padding(.horizontal)
-                    } else {
-                        ScrollView(.horizontal, showsIndicators: true) {
-                            Text(highlightedXML)
-                                .padding()
-                                .background(Color(.secondarySystemBackground))
-                                .cornerRadius(8)
-                        }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 }
             }
         }
         .onAppear {
-            if xmlString.isEmpty && !isLoading {
-                isLoading = true
-                let localPlist = plist
-                Task.detached(priority: .userInitiated) {
-                    let generatedXML = self.generateXMLString(from: localPlist)
-                    let highlighted = self.highlightXML(generatedXML)
-                    
-                    await MainActor.run {
-                        self.xmlString = generatedXML
-                        self.highlightedXML = highlighted
-                        self.isLoading = false
-                    }
-                }
+            if xmlString.isEmpty {
+                xmlString = generateXMLString(from: plist)
             }
         }
     }
@@ -326,41 +296,6 @@ struct InfoPlistRawXMLView: View {
         }
         return string
     }
-    
-    private func highlightXML(_ xml: String) -> AttributedString {
-        let nsMutable = NSMutableAttributedString(string: xml)
-        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: xml.count))
-        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: xml.count))
-        
-        if let tagRegex = try? NSRegularExpression(pattern: "</?[a-zA-Z0-9:-]+( [^>]+)*/?>", options: []) {
-            let matches = tagRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
-            for match in matches {
-                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: match.range)
-            }
-        }
-        
-        if let keyRegex = try? NSRegularExpression(pattern: "<key>([^<]+)</key>", options: []) {
-            let matches = keyRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let textRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemBlue, range: textRange)
-                }
-            }
-        }
-        
-        if let stringRegex = try? NSRegularExpression(pattern: "<string>([^<]*)</string>", options: []) {
-            let matches = stringRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let textRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: textRange)
-                }
-            }
-        }
-        
-        return AttributedString(nsMutable)
-    }
 }
 
 // MARK: - Mode 2: Raw JSON View
@@ -371,8 +306,6 @@ struct InfoPlistRawView: View {
     @State private var isWrapped = true
     
     @Binding var jsonString: String
-    @Binding var highlightedJSON: AttributedString
-    @Binding var isLoading: Bool
     
     var body: some View {
         ScrollView {
@@ -410,47 +343,29 @@ struct InfoPlistRawView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                if isLoading {
-                    HStack {
-                        Spacer()
-                        ProgressView("Formatting JSON...")
-                            .padding()
-                        Spacer()
-                    }
+                if isWrapped {
+                    Text(jsonString)
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
                 } else {
-                    if isWrapped {
-                        Text(highlightedJSON)
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        Text(jsonString)
+                            .font(.system(size: 11, design: .monospaced))
                             .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
-                            .padding(.horizontal)
-                    } else {
-                        ScrollView(.horizontal, showsIndicators: true) {
-                            Text(highlightedJSON)
-                                .padding()
-                                .background(Color(.secondarySystemBackground))
-                                .cornerRadius(8)
-                        }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 }
             }
         }
         .onAppear {
-            if jsonString.isEmpty && !isLoading {
-                isLoading = true
-                let localPlist = plist
-                Task.detached(priority: .userInitiated) {
-                    let generatedJSON = self.generateJSONString(from: localPlist)
-                    let highlighted = self.highlightJSON(generatedJSON)
-                    
-                    await MainActor.run {
-                        self.jsonString = generatedJSON
-                        self.highlightedJSON = highlighted
-                        self.isLoading = false
-                    }
-                }
+            if jsonString.isEmpty {
+                jsonString = generateJSONString(from: plist)
             }
         }
     }
@@ -461,41 +376,6 @@ struct InfoPlistRawView: View {
             return "{}"
         }
         return string
-    }
-    
-    private func highlightJSON(_ json: String) -> AttributedString {
-        let nsMutable = NSMutableAttributedString(string: json)
-        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: json.count))
-        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: json.count))
-        
-        if let keyRegex = try? NSRegularExpression(pattern: "\"([^\"]+)\"\\s*:", options: []) {
-            let matches = keyRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let keyRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: keyRange)
-                }
-            }
-        }
-        
-        if let valRegex = try? NSRegularExpression(pattern: ":\\s*\"([^\"]*)\"", options: []) {
-            let matches = valRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let valRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: valRange)
-                }
-            }
-        }
-        
-        if let numRegex = try? NSRegularExpression(pattern: "\\b(true|false|null|-?\\d+(\\.\\d+)?)\\b", options: []) {
-            let matches = numRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
-            for match in matches {
-                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemOrange, range: match.range)
-            }
-        }
-        
-        return AttributedString(nsMutable)
     }
 }
 
