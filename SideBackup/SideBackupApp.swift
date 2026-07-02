@@ -112,13 +112,6 @@ enum BackupOperation {
 @MainActor
 class AppState: ObservableObject {
     @Published var currentOperation: BackupOperation? = nil
-    @Published var alertItem: AlertItem? = nil
-    
-    struct AlertItem: Identifiable {
-        let id = UUID()
-        let title: String
-        let message: String
-    }
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -184,19 +177,6 @@ class AppState: ObservableObject {
     }
     
     private func process(_ result: Result<Void, Error>, errorTitle: String) {
-        switch result {
-        case .success:
-            break
-        case .failure(let error as NSError):
-            let message: String
-            if let sourceDescription = error.sourceDescription {
-                message = error.localizedDescription + "\n\n" + sourceDescription
-            } else {
-                message = error.localizedDescription
-            }
-            self.alertItem = AlertItem(title: errorTitle, message: message)
-        }
-        
         NotificationCenter.default.post(
             name: AppDelegate.operationDidFinishNotification,
             object: nil,

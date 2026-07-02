@@ -43,12 +43,5 @@ struct ContentView: View {
             .padding()
         }
         .preferredColorScheme(.dark)
-        .alert(item: $state.alertItem) { item in
-            Alert(
-                title: Text(item.title),
-                message: Text(item.message),
-                dismissButton: .default(Text("OK"))
-            )
-        }
     }
 }
