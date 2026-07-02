@@ -102,6 +102,9 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
     private func prepareAppBundle(for app: ALTApplication, profiles: [String: ALTProvisioningProfile], appexBundleIds: [String: String], parentProgress: Progress) async throws -> URL {
         let progress = Progress.discreteProgress(totalUnitCount: 1)
         parentProgress.addChild(progress, withPendingUnitCount: 1)
+        defer {
+            progress.completedUnitCount = 1
+        }
 
         let bundleIdentifier = context.bundleIdentifier
         // Use customized bundle ID if applicable
@@ -110,12 +113,6 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
 
         let appBundleURL = self.context.temporaryDirectory.appendingPathComponent("App.app")
         try FileManager.default.copyItem(at: fileURL, to: appBundleURL)
-        
-        // Become current so we can observe progress from unzipAppBundle().
-        progress.becomeCurrent(withPendingUnitCount: 1)
-        defer {
-            progress.resignCurrent()
-        }
         
         guard let appBundle = Bundle(url: appBundleURL) else { throw ALTError(.missingAppBundle) }
         guard let infoDictionary = appBundle.completeInfoDictionary else { throw ALTError(.missingInfoPlist) }
@@ -156,7 +153,7 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
             additionalValues[Bundle.Info.serverID] = UserDefaults.standard.preferredServerID
         }
         
-        let iconScale = Int(UIScreen.main.scale)
+        let iconScale = Int(await UIScreen.main.scale)
         
         if let alternateIconURL = self.context.alternateIconURL,
            case let data = try Data(contentsOf: alternateIconURL),
