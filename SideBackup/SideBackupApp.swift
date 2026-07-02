@@ -2,7 +2,8 @@
 //  SideBackupApp.swift
 //  SideBackup
 //
-//  Created by Magesh K on 2026-07-02.
+//  Created by Magesh K on 2/7/26.
+//  Copyright © 2026 SideStore. All rights reserved.
 //
 
 import SwiftUI
@@ -108,6 +109,7 @@ enum BackupOperation {
     case restore
 }
 
+@MainActor
 class AppState: ObservableObject {
     @Published var currentOperation: BackupOperation? = nil
     @Published var alertItem: AlertItem? = nil
@@ -118,21 +120,26 @@ class AppState: ObservableObject {
         let message: String
     }
     
-    private let backupController = BackupController()
     private var cancellables = Set<AnyCancellable>()
     
     init() {
         NotificationCenter.default.publisher(for: AppDelegate.startBackupNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.backup()
+                guard let self = self else { return }
+                Task {
+                    await self.backup()
+                }
             }
             .store(in: &cancellables)
             
         NotificationCenter.default.publisher(for: AppDelegate.startRestoreNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.restore()
+                guard let self = self else { return }
+                Task {
+                    await self.restore()
+                }
             }
             .store(in: &cancellables)
             
@@ -148,96 +155,53 @@ class AppState: ObservableObject {
             .store(in: &cancellables)
     }
     
-    private func backup() {
+    private func backup() async {
         self.currentOperation = .backup
         
-        self.backupController.performBackup { [weak self] result in
-            guard let self = self else { return }
-            let appName = Bundle.main.appName ?? NSLocalizedString("App", comment: "")
+        let appName = Bundle.main.appName ?? NSLocalizedString("App", comment: "")
+        
+        do {
+            try await BackupEngine.shared.performBackup()
+            self.process(.success(()), errorTitle: "")
+        } catch {
             let title = String(format: NSLocalizedString("%@ could not be backed up.", comment: ""), appName)
-            self.process(result, errorTitle: title)
+            self.process(.failure(error), errorTitle: title)
         }
     }
     
-    private func restore() {
+    private func restore() async {
         self.currentOperation = .restore
         
-        self.backupController.restoreBackup { [weak self] result in
-            guard let self = self else { return }
-            let appName = Bundle.main.appName ?? NSLocalizedString("App", comment: "")
+        let appName = Bundle.main.appName ?? NSLocalizedString("App", comment: "")
+        
+        do {
+            try await BackupEngine.shared.restoreBackup()
+            self.process(.success(()), errorTitle: "")
+        } catch {
             let title = String(format: NSLocalizedString("%@ could not be restored.", comment: ""), appName)
-            self.process(result, errorTitle: title)
+            self.process(.failure(error), errorTitle: title)
         }
     }
     
     private func process(_ result: Result<Void, Error>, errorTitle: String) {
-        DispatchQueue.main.async {
-            switch result {
-            case .success:
-                break
-            case .failure(let error as NSError):
-                let message: String
-                if let sourceDescription = error.sourceDescription {
-                    message = error.localizedDescription + "\n\n" + sourceDescription
-                } else {
-                    message = error.localizedDescription
-                }
-                self.alertItem = AlertItem(title: errorTitle, message: message)
+        switch result {
+        case .success:
+            break
+        case .failure(let error as NSError):
+            let message: String
+            if let sourceDescription = error.sourceDescription {
+                message = error.localizedDescription + "\n\n" + sourceDescription
+            } else {
+                message = error.localizedDescription
             }
-            
-            NotificationCenter.default.post(
-                name: AppDelegate.operationDidFinishNotification,
-                object: nil,
-                userInfo: [AppDelegate.operationResultKey: result]
-            )
+            self.alertItem = AlertItem(title: errorTitle, message: message)
         }
-    }
-}
-
-struct ContentView: View {
-    @StateObject private var state = AppState()
-    
-    var body: some View {
-        ZStack {
-            Color("Background")
-                .ignoresSafeArea()
-            
-            VStack(spacing: 22) {
-                if let operation = state.currentOperation {
-                    Text(operation == .backup ? "Backing up app data…" : "Restoring app data…")
-                        .font(.title2)
-                        .foregroundColor(Color("Text"))
-                        .multilineTextAlignment(.center)
-                    
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Color("Text")))
-                        .scaleEffect(1.5)
-                } else {
-                    // TODO: @mahee96: Disabled these backup/restore buttons in sidebackup.app screen which were present for debugging purpose.
-                    //                 Can find something useful for these later, but these are not required by this backup/restore app
-                    Text(String(format: NSLocalizedString("%@ is inactive.", comment: ""),
-                                Bundle.main.appName ?? NSLocalizedString("App", comment: "")))
-                        .font(.title2)
-                        .foregroundColor(Color("Text"))
-                        .multilineTextAlignment(.center)
-                    
-                    Text(String(format: NSLocalizedString("Refresh %@ in SideStore to continue using it.", comment: ""),
-                                Bundle.main.appName ?? NSLocalizedString("this app", comment: "")))
-                        .font(.body)
-                        .foregroundColor(Color("Text"))
-                        .multilineTextAlignment(.center)
-                }
-            }
-            .padding()
-        }
-        .preferredColorScheme(.dark)
-        .alert(item: $state.alertItem) { item in
-            Alert(
-                title: Text(item.title),
-                message: Text(item.message),
-                dismissButton: .default(Text("OK"))
-            )
-        }
+        
+        NotificationCenter.default.post(
+            name: AppDelegate.operationDidFinishNotification,
+            object: nil,
+            userInfo: [AppDelegate.operationResultKey: result]
+        )
     }
 }
 
