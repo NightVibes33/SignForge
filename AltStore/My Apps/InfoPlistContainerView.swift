@@ -211,59 +211,26 @@ struct InfoPlistRawXMLView: View {
     let plist: [String: Any]
     
     @State private var isCopied = false
-    
-    var xmlString: String {
-        guard let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0),
-              let string = String(data: data, encoding: .utf8) else {
-            return ""
-        }
-        return string
-    }
-    
-    var highlightedXML: AttributedString {
-        let xml = xmlString
-        let nsMutable = NSMutableAttributedString(string: xml)
-        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: xml.count))
-        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: xml.count))
-        
-        // Highlight XML Tags: <tag> and </tag>
-        if let tagRegex = try? NSRegularExpression(pattern: "</?[a-zA-Z0-9:-]+( [^>]+)*/?>", options: []) {
-            let matches = tagRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
-            for match in matches {
-                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: match.range)
-            }
-        }
-        
-        // Highlight <key> text
-        if let keyRegex = try? NSRegularExpression(pattern: "<key>([^<]+)</key>", options: []) {
-            let matches = keyRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let textRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemBlue, range: textRange)
-                }
-            }
-        }
-        
-        // Highlight <string> text
-        if let stringRegex = try? NSRegularExpression(pattern: "<string>([^<]*)</string>", options: []) {
-            let matches = stringRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let textRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: textRange)
-                }
-            }
-        }
-        
-        return AttributedString(nsMutable)
-    }
+    @State private var isWrapped = true
+    @State private var xmlString: String = ""
+    @State private var highlightedXML: AttributedString = AttributedString("")
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Spacer()
+                    
+                    SwiftUI.Button {
+                        withAnimation {
+                            isWrapped.toggle()
+                        }
+                    } label: {
+                        Label(isWrapped ? "Wrap: On" : "Wrap: Off", systemImage: isWrapped ? "text.alignleft" : "text.chevron.right")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
+                    
                     SwiftUI.Button {
                         UIPasteboard.general.string = xmlString
                         withAnimation {
@@ -284,14 +251,74 @@ struct InfoPlistRawXMLView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                Text(highlightedXML)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(8)
+                if isWrapped {
+                    Text(highlightedXML)
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        Text(highlightedXML)
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(8)
+                    }
                     .padding(.horizontal)
+                }
             }
         }
+        .onAppear {
+            if xmlString.isEmpty {
+                let generatedXML = generateXMLString(from: plist)
+                xmlString = generatedXML
+                highlightedXML = highlightXML(generatedXML)
+            }
+        }
+    }
+    
+    private func generateXMLString(from plist: [String: Any]) -> String {
+        guard let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0),
+              let string = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        return string
+    }
+    
+    private func highlightXML(_ xml: String) -> AttributedString {
+        let nsMutable = NSMutableAttributedString(string: xml)
+        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: xml.count))
+        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: xml.count))
+        
+        if let tagRegex = try? NSRegularExpression(pattern: "</?[a-zA-Z0-9:-]+( [^>]+)*/?>", options: []) {
+            let matches = tagRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
+            for match in matches {
+                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: match.range)
+            }
+        }
+        
+        if let keyRegex = try? NSRegularExpression(pattern: "<key>([^<]+)</key>", options: []) {
+            let matches = keyRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
+            for match in matches {
+                if match.numberOfRanges > 1 {
+                    let textRange = match.range(at: 1)
+                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemBlue, range: textRange)
+                }
+            }
+        }
+        
+        if let stringRegex = try? NSRegularExpression(pattern: "<string>([^<]*)</string>", options: []) {
+            let matches = stringRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
+            for match in matches {
+                if match.numberOfRanges > 1 {
+                    let textRange = match.range(at: 1)
+                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: textRange)
+                }
+            }
+        }
+        
+        return AttributedString(nsMutable)
     }
 }
 
@@ -300,59 +327,26 @@ struct InfoPlistRawView: View {
     let plist: [String: Any]
     
     @State private var isCopied = false
-    
-    var jsonString: String {
-        guard let data = try? JSONSerialization.data(withJSONObject: plist, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]),
-              let string = String(data: data, encoding: .utf8) else {
-            return "{}"
-        }
-        return string
-    }
-    
-    var highlightedJSON: AttributedString {
-        let json = jsonString
-        let nsMutable = NSMutableAttributedString(string: json)
-        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: json.count))
-        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: json.count))
-        
-        // Highlight Keys
-        if let keyRegex = try? NSRegularExpression(pattern: "\"([^\"]+)\"\\s*:", options: []) {
-            let matches = keyRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let keyRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: keyRange)
-                }
-            }
-        }
-        
-        // Highlight String Values
-        if let valRegex = try? NSRegularExpression(pattern: ":\\s*\"([^\"]*)\"", options: []) {
-            let matches = valRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
-            for match in matches {
-                if match.numberOfRanges > 1 {
-                    let valRange = match.range(at: 1)
-                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: valRange)
-                }
-            }
-        }
-        
-        // Highlight Booleans & Numbers
-        if let numRegex = try? NSRegularExpression(pattern: "\\b(true|false|null|-?\\d+(\\.\\d+)?)\\b", options: []) {
-            let matches = numRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
-            for match in matches {
-                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemOrange, range: match.range)
-            }
-        }
-        
-        return AttributedString(nsMutable)
-    }
+    @State private var isWrapped = true
+    @State private var jsonString: String = ""
+    @State private var highlightedJSON: AttributedString = AttributedString("")
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Spacer()
+                    
+                    SwiftUI.Button {
+                        withAnimation {
+                            isWrapped.toggle()
+                        }
+                    } label: {
+                        Label(isWrapped ? "Wrap: On" : "Wrap: Off", systemImage: isWrapped ? "text.alignleft" : "text.chevron.right")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
+                    
                     SwiftUI.Button {
                         UIPasteboard.general.string = jsonString
                         withAnimation {
@@ -373,14 +367,74 @@ struct InfoPlistRawView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                Text(highlightedJSON)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(8)
+                if isWrapped {
+                    Text(highlightedJSON)
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        Text(highlightedJSON)
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(8)
+                    }
                     .padding(.horizontal)
+                }
             }
         }
+        .onAppear {
+            if jsonString.isEmpty {
+                let generatedJSON = generateJSONString(from: plist)
+                jsonString = generatedJSON
+                highlightedJSON = highlightJSON(generatedJSON)
+            }
+        }
+    }
+    
+    private func generateJSONString(from plist: [String: Any]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: plist, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
+    }
+    
+    private func highlightJSON(_ json: String) -> AttributedString {
+        let nsMutable = NSMutableAttributedString(string: json)
+        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: json.count))
+        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: json.count))
+        
+        if let keyRegex = try? NSRegularExpression(pattern: "\"([^\"]+)\"\\s*:", options: []) {
+            let matches = keyRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
+            for match in matches {
+                if match.numberOfRanges > 1 {
+                    let keyRange = match.range(at: 1)
+                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: keyRange)
+                }
+            }
+        }
+        
+        if let valRegex = try? NSRegularExpression(pattern: ":\\s*\"([^\"]*)\"", options: []) {
+            let matches = valRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
+            for match in matches {
+                if match.numberOfRanges > 1 {
+                    let valRange = match.range(at: 1)
+                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: valRange)
+                }
+            }
+        }
+        
+        if let numRegex = try? NSRegularExpression(pattern: "\\b(true|false|null|-?\\d+(\\.\\d+)?)\\b", options: []) {
+            let matches = numRegex.matches(in: json, options: [], range: NSRange(location: 0, length: json.count))
+            for match in matches {
+                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemOrange, range: match.range)
+            }
+        }
+        
+        return AttributedString(nsMutable)
     }
 }
 
