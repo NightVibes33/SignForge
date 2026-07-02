@@ -48,8 +48,13 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>
     
     private func deactivate() async throws -> InstalledApp {
         let backgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
-        return try await backgroundContext.perform {
-            try self.performDeactivate(in: backgroundContext)
+        try await backgroundContext.perform {
+            _ = try self.performDeactivate(in: backgroundContext)
+            try backgroundContext.save()
+        }
+        
+        return try await DatabaseManager.shared.persistentContainer.viewContext.perform {
+            return DatabaseManager.shared.persistentContainer.viewContext.object(with: self.app.objectID) as! InstalledApp
         }
     }
     

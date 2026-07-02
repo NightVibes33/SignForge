@@ -60,8 +60,13 @@ final class RemoveAppOperation: ResultOperation<InstalledApp>
         try removeApp(resignedBundleIdentifier)
         
         let backgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
-        return await backgroundContext.perform {
-            self.markInactive(installedApp, in: backgroundContext)
+        try await backgroundContext.perform {
+            _ = self.markInactive(installedApp, in: backgroundContext)
+            try backgroundContext.save()
+        }
+        
+        return try await DatabaseManager.shared.persistentContainer.viewContext.perform {
+            return DatabaseManager.shared.persistentContainer.viewContext.object(with: installedApp.objectID) as! InstalledApp
         }
     }
     
