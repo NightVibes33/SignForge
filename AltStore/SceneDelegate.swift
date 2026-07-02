@@ -140,6 +140,15 @@ private extension SceneDelegate
             switch host
             {
             case "appbackupresponse":
+                // stream all SideBackup output into our own log
+                if let altstoreAppGroup = Bundle.main.altstoreAppGroup,
+                   let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: altstoreAppGroup) {
+                    let logFileURL = containerURL.appendingPathComponent("Logs", isDirectory: true).appendingPathComponent("SideBackup.log")
+                    if let logContents = try? String(contentsOf: logFileURL, encoding: .utf8), !logContents.isEmpty {
+                        print("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
+                    }
+                }
+                
                 let result: Result<Void, Error>
                 
                 switch context.url.path.lowercased()
