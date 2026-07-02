@@ -95,10 +95,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         guard let responseURL = components.url else { return }
         
-        DispatchQueue.main.async {
+        Task { @MainActor in
             // Response to the caller/parent app is posted here (url is provided by caller in incoming query params)
             UIApplication.shared.open(responseURL, options: [:]) { (success) in
-                debugLog("Sent response to app with success:", success)
+                debugLog("[SideBackup]: Sent response to app with success:", success)
             }
         }
     }

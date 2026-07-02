@@ -117,7 +117,12 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
         guard let appBundle = Bundle(url: appBundleURL) else { throw ALTError(.missingAppBundle) }
         guard let infoDictionary = appBundle.completeInfoDictionary else { throw ALTError(.missingInfoPlist) }
         
+        // replace scheme targets to match the bundle suffix so multiple instances can be correctly routed for helper apps like SideBackup
         var allURLSchemes = infoDictionary[Bundle.Info.urlTypes] as? [[String: Any]] ?? []
+        allURLSchemes.removeAll { urlType in
+            guard let schemes = urlType["CFBundleURLSchemes"] as? [String] else { return false }
+            return schemes.contains { $0.hasPrefix("sidestore-") }
+        }
         
         let altstoreURLScheme = ["CFBundleTypeRole": "Editor",
                                  "CFBundleURLName": bundleIdentifier,
