@@ -462,15 +462,12 @@ struct InfoPlistSemanticView: View {
     
     var body: some View {
         List {
-            // General Info Card
+            // General Info
             Section(header: Text("General Info")) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SemanticValueRow(label: "App Name", value: appName)
-                    SemanticValueRow(label: "Bundle Identifier", value: bundleID)
-                    SemanticValueRow(label: "Version", value: version)
-                    SemanticValueRow(label: "Minimum OS", value: minOS)
-                }
-                .padding(.vertical, 4)
+                SemanticValueRow(label: "App Name", value: appName)
+                SemanticValueRow(label: "Bundle Identifier", value: bundleID)
+                SemanticValueRow(label: "Version", value: version)
+                SemanticValueRow(label: "Minimum OS", value: minOS)
             }
             
             // Privacy Permissions Card
@@ -558,8 +555,6 @@ struct SemanticValueRow: View {
     let label: String
     let value: String
     
-    @State private var isCopied = false
-    
     var body: some View {
         HStack {
             Text(label)
@@ -571,23 +566,12 @@ struct SemanticValueRow: View {
                 .foregroundColor(.primary)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
-            
-            Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                .font(.caption2)
-                .foregroundColor(isCopied ? .green : .accentColor.opacity(0.7))
-                .frame(width: 16, height: 16)
-                .padding(.leading, 4)
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIPasteboard.general.string = value
-            withAnimation {
-                isCopied = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    isCopied = false
-                }
+        .contextMenu {
+            SwiftUI.Button {
+                UIPasteboard.general.string = value
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
             }
         }
     }
@@ -598,35 +582,27 @@ struct LocalCopyableDescriptionRow: View {
     let key: String
     let value: String
     
-    @State private var isCopied = false
-    
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(key)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .bold()
-                Spacer()
-                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                    .font(.caption)
-                    .foregroundColor(isCopied ? .green : .accentColor)
-            }
+            Text(key)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .bold()
             Text(value)
                 .font(.subheadline)
                 .foregroundColor(.primary)
         }
         .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIPasteboard.general.string = value
-            withAnimation {
-                isCopied = true
+        .contextMenu {
+            SwiftUI.Button {
+                UIPasteboard.general.string = value
+            } label: {
+                Label("Copy Value", systemImage: "doc.on.doc")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    isCopied = false
-                }
+            SwiftUI.Button {
+                UIPasteboard.general.string = key
+            } label: {
+                Label("Copy Key", systemImage: "doc.on.doc")
             }
         }
     }
@@ -636,27 +612,17 @@ struct LocalCopyableDescriptionRow: View {
 struct LocalCopyableValueOnlyRow: View {
     let value: String
     
-    @State private var isCopied = false
-    
     var body: some View {
         HStack {
             Text(value)
                 .font(.subheadline)
             Spacer()
-            Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                .font(.caption)
-                .foregroundColor(isCopied ? .green : .accentColor)
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIPasteboard.general.string = value
-            withAnimation {
-                isCopied = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    isCopied = false
-                }
+        .contextMenu {
+            SwiftUI.Button {
+                UIPasteboard.general.string = value
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
             }
         }
     }

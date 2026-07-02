@@ -188,22 +188,13 @@ struct ProvisioningProfileDetailView: View {
             Section(header: Text("Entitlements (\(profile.entitlements.count))")) {
                 let sortedEntitlements = profile.entitlements.sorted { $0.key.rawValue < $1.key.rawValue }
                 ForEach(sortedEntitlements, id: \.key.rawValue) { entitlement, value in
-                    EntitlementRow(key: entitlement.rawValue, value: value, onCopy: {
-                        UIPasteboard.general.string = "\(value)"
-                        toastMessage = "Copied \(entitlement.rawValue)!"
-                        withAnimation {
-                            isShowingToast = true
-                        }
-                    })
+                    EntitlementRow(key: entitlement.rawValue, value: value)
                 }
             }
         }
         .listStyle(InsetGroupedListStyle())
         .navigationTitle("Profile Details")
         .interactiveDismissDisabled(true)
-        .overlay(
-            AppInfoToastView(isShowing: $isShowingToast, message: toastMessage)
-        )
     }
     
     private func formatDate(_ date: Date) -> String {
@@ -288,34 +279,43 @@ struct ProfileInfoRow: View {
                 .foregroundColor(valueColor)
                 .multilineTextAlignment(.trailing)
         }
+        .contextMenu {
+            SwiftUI.Button {
+                UIPasteboard.general.string = value
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+        }
     }
 }
 
 struct EntitlementRow: View {
     let key: String
     let value: Any
-    let onCopy: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(key)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .bold()
-                Spacer()
-                SwiftUI.Button(action: onCopy) {
-                    Image(systemName: "doc.on.doc")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-            }
+            Text(key)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .bold()
             Text(formatValue(value))
-                .font(.system(.subheadline, design: .monospaced))
+                .font(.subheadline)
                 .foregroundColor(.primary)
         }
         .padding(.vertical, 4)
+        .contextMenu {
+            SwiftUI.Button {
+                UIPasteboard.general.string = formatValue(value)
+            } label: {
+                Label("Copy Value", systemImage: "doc.on.doc")
+            }
+            SwiftUI.Button {
+                UIPasteboard.general.string = key
+            } label: {
+                Label("Copy Key", systemImage: "doc.on.doc")
+            }
+        }
     }
     
     private func formatValue(_ val: Any) -> String {
