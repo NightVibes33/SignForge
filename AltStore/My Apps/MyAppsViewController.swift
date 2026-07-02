@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import MobileCoreServices
 import Intents
 import Combine
@@ -1435,6 +1436,13 @@ private extension MyAppsViewController
         self.present(documentPicker, animated: true, completion: nil)
     }
     
+    func showAppInfo(_ installedApp: InstalledApp)
+    {
+        let appInfoView = AppInfoView(installedApp: installedApp)
+        let hostingController = UIHostingController(rootView: appInfoView)
+        self.present(hostingController, animated: true, completion: nil)
+    }
+    
     func chooseIcon(for installedApp: InstalledApp)
     {
         self._imagePickerInstalledApp = installedApp
@@ -1862,6 +1870,10 @@ extension MyAppsViewController
             self.changeIcon(for: installedApp, to: nil)
         }
         
+        let infoAction = UIAction(title: NSLocalizedString("Info", comment: ""), image: UIImage(systemName: "info.circle")) { [weak self] (action) in
+            self?.showAppInfo(installedApp)
+        }
+        
         var changeIconActions = [chooseIconAction]
         if installedApp.hasAlternateIcon
         {
@@ -1870,7 +1882,7 @@ extension MyAppsViewController
         
         let changeIconMenu = UIMenu(title: NSLocalizedString("Change Icon", comment: ""), image: UIImage(systemName: "photo"), children: changeIconActions)
         
-        if installedApp.bundleIdentifier == StoreApp.altstoreAppID
+        if installedApp.resignedBundleIdentifier == Bundle.main.bundleIdentifier
         {
             #if BETA
             actions = [refreshAction, resignAction, changeIconMenu]
@@ -1978,6 +1990,8 @@ extension MyAppsViewController
             #endif
         }
         
+        actions.append(infoAction)
+        
         // Change the order of entries to make changes to how the context menu is displayed
         let orderedActions = [
             openMenu,
@@ -1991,6 +2005,7 @@ extension MyAppsViewController
             importBackupAction,
             restoreBackupAction,
             restorePreviousBackupAction,
+            infoAction,
             deactivateAction,
             removeAction,
         ]
@@ -2011,7 +2026,8 @@ extension MyAppsViewController
                 deactivateAction,
                 removeAction,
                 backupAction,
-                exportBackupAction
+                exportBackupAction,
+                infoAction
             ]
             
             for action in actions where !allowedActions.contains(action)

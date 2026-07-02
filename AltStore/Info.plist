@@ -75,7 +75,7 @@
 			<string>SideStore Backup</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>sidestore-com.SideStore.SideStore</string>
+				<string>sidestore-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			</array>
 		</dict>
 	</array>

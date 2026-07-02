@@ -49,10 +49,11 @@ class BackupAppOperation: ResultOperation<Void> {
                     let appName = installedApp.name
                     self.appName = appName
                     
-                    guard let altstoreApp = InstalledApp.fetchAltStore(in: context) else {
-                        throw OperationError.appNotFound(name: appName)
+                    guard let bundleIdentifier = Bundle.main.bundleIdentifier,
+                          let altstoreOpenURL = URL(string: "sidestore-\(bundleIdentifier)://")
+                    else {
+                        throw OperationError.openAppFailed(name: appName)
                     }
-                    let altstoreOpenURL = altstoreApp.openAppURL
 
                     var returnURLComponents = URLComponents(url: altstoreOpenURL, resolvingAgainstBaseURL: false)
                     returnURLComponents?.host = "appBackupResponse"
@@ -105,6 +106,14 @@ class BackupAppOperation: ResultOperation<Void> {
     }
     
     override func finish(_ result: Result<Void, Error>) {
+        if let altstoreAppGroup = Bundle.main.altstoreAppGroup,
+           let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: altstoreAppGroup) {
+            let logFileURL = containerURL.appendingPathComponent("Logs", isDirectory: true).appendingPathComponent("SideBackup.log")
+            if let logContents = try? String(contentsOf: logFileURL, encoding: .utf8), !logContents.isEmpty {
+                print("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
+            }
+        }
+
         let result = result.mapError { (error) -> Error in
             let appName = self.appName ?? self.context.bundleIdentifier
             

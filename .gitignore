@@ -41,7 +41,7 @@ xcuserdata
 
 Payload/
 **/SideStore.ipa
-**/AltBackup.ipa
+**/SideBackup.ipa
 **/*.dSYM
 
 Dependencies/.*-prebuilt-fetch-*

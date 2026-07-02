@@ -9,8 +9,21 @@
 import SwiftUI
 import AltSign
 
+struct DeveloperPortalMetadata {
+    var identifier: String?
+    var machineName: String?
+    var machineIdentifier: String?
+    var requesterEmail: String?
+}
+
 struct CertificateDetailView: View {
     let certificate: ALTCertificate
+    let portalMetadata: DeveloperPortalMetadata?
+    
+    init(certificate: ALTCertificate, portalMetadata: DeveloperPortalMetadata? = nil) {
+        self.certificate = certificate
+        self.portalMetadata = portalMetadata
+    }
     
     @State private var isRedacted = true
     
@@ -27,7 +40,9 @@ struct CertificateDetailView: View {
         Form {
             Section {
                 detailRow(title: "Common Name", value: redactableValue(certificate.name))
-                detailRow(title: "Machine Name", value: redactableValue(certificate.machineName ?? "N/A"))
+                if let machineName = portalMetadata?.machineName {
+                    detailRow(title: "Machine Name", value: redactableValue(machineName))
+                }
                 detailRow(title: "Type", value: briefInfo?.type ?? "Developer Certificate")
                 detailRow(title: "Valid From", value: briefInfo?.validFrom ?? "N/A")
                 detailRow(title: "Valid Until", value: briefInfo?.validUntil ?? "N/A")
@@ -36,12 +51,20 @@ struct CertificateDetailView: View {
                 Text("Basic Information")
             }
             
-            Section {
-                detailRowWithCopy(title: "Certificate ID", value: certificate.identifier ?? "N/A", isCopied: $copiedIdentifier)
-                detailRow(title: "Machine ID", value: certificate.machineIdentifier ?? "N/A")
-                detailRow(title: "Requester Email", value: redactableValue(certificate.requesterEmail ?? "N/A"))
-            } header: {
-                Text("Developer Portal Info")
+            if let metadata = portalMetadata {
+                Section {
+                    if let identifier = metadata.identifier {
+                        detailRowWithCopy(title: "Certificate ID", value: identifier, isCopied: $copiedIdentifier)
+                    }
+                    if let machineID = metadata.machineIdentifier {
+                        detailRow(title: "Machine ID", value: machineID)
+                    }
+                    if let email = metadata.requesterEmail {
+                        detailRow(title: "Requester Email", value: redactableValue(email))
+                    }
+                } header: {
+                    Text("Developer Portal Info")
+                }
             }
             
             if let certData = certificate.data {

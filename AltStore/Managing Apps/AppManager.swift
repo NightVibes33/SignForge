@@ -1613,9 +1613,9 @@ private extension AppManager
         
 //        let destinationURL = resignedAppsURL.appendingPathComponent(sourceURL.lastPathComponent)
         let utis = Bundle(url: resignedApp.fileURL)?.infoDictionary?[Bundle.Info.exportedUTIs] as? [[String: Any]]
-        let isAltBackup = utis?.first?["UTTypeDescription"] as? String == "AltStore Backup App"
+        let isSideBackup = utis?.first?["UTTypeDescription"] as? String == "SideStore Backup App"
         
-        let destPath = isAltBackup ? resignedApp.name + "-altbackup" : resignedApp.name
+        let destPath = isSideBackup ? resignedApp.name + "-sidebackup" : resignedApp.name
         let destinationURL = resignedAppsURL.appendingPathComponent(destPath + ".app")
         
         // Delete the existing file if it exists
@@ -2011,12 +2011,12 @@ private extension AppManager
             app.managedObjectContext?.perform {
                 do
                 {
-                    let temporaryDirectoryURL = context.temporaryDirectory.appendingPathComponent("AltBackup-" + UUID().uuidString)
+                    let temporaryDirectoryURL = context.temporaryDirectory.appendingPathComponent("SideBackup-" + UUID().uuidString)
                     try FileManager.default.createDirectory(at: temporaryDirectoryURL, withIntermediateDirectories: true, attributes: nil)
                     
-                    guard let altbackupFileURL = Bundle.main.url(forResource: "AltBackup", withExtension: "ipa") else { throw OperationError.appNotFound(name: "AltBackup") }
+                    guard let sidebackupFileURL = Bundle.main.url(forResource: "SideBackup", withExtension: "ipa") else { throw OperationError.appNotFound(name: "SideBackup") }
 
-                    let unzippedAppBundleURL = try FileManager.default.unzipAppBundle(at: altbackupFileURL, toDirectory: temporaryDirectoryURL)
+                    let unzippedAppBundleURL = try FileManager.default.unzipAppBundle(at: sidebackupFileURL, toDirectory: temporaryDirectoryURL)
                     guard let unzippedAppBundle = Bundle(url: unzippedAppBundleURL) else { throw OperationError.invalidApp }
                     
                     if var infoDictionary = unzippedAppBundle.infoDictionary
@@ -2027,7 +2027,7 @@ private extension AppManager
                         
                         // Add app-specific exported UTI so we can check later if this temporary backup app is still installed or not.
                         let installedAppUTI = ["UTTypeConformsTo": [],
-                                               "UTTypeDescription": "AltStore Backup App",
+                                               "UTTypeDescription": "SideStore Backup App",
                                                "UTTypeIconFiles": [],
                                                "UTTypeIdentifier": app.installedBackupAppUTI,
                                                "UTTypeTagSpecification": [:]] as [String : Any]

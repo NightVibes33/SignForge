@@ -701,7 +701,13 @@ struct CertificatesView: View {
     }
     
     private func pushDetailView(for cert: ALTCertificate) {
-        let detailView = CertificateDetailView(certificate: cert)
+        let metadata = DeveloperPortalMetadata(
+            identifier: cert.identifier,
+            machineName: cert.machineName,
+            machineIdentifier: cert.machineIdentifier,
+            requesterEmail: cert.requesterEmail
+        )
+        let detailView = CertificateDetailView(certificate: cert, portalMetadata: metadata)
         let detailVC = UIHostingController(rootView: detailView)
         
         let appearance = UINavigationBarAppearance()
