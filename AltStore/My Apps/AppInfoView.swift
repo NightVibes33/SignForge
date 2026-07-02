@@ -148,17 +148,17 @@ struct ProvisioningProfileDetailView: View {
     var body: some View {
         List {
             Section(header: Text("Profile Metadata")) {
-                InfoRow(label: "Name", value: profile.name)
-                InfoRow(label: "UUID", value: profile.UUID.uuidString)
+                ProfileInfoRow(label: "Name", value: profile.name)
+                ProfileInfoRow(label: "UUID", value: profile.UUID.uuidString)
                 if let identifier = profile.identifier {
-                    InfoRow(label: "Identifier", value: identifier)
+                    ProfileInfoRow(label: "Identifier", value: identifier)
                 }
-                InfoRow(label: "Team Name", value: profile.teamName)
-                InfoRow(label: "Team Identifier", value: profile.teamIdentifier)
-                InfoRow(label: "App Bundle ID", value: profile.bundleIdentifier)
-                InfoRow(label: "Created", value: formatDate(profile.creationDate))
-                InfoRow(label: "Expires", value: formatDate(profile.expirationDate))
-                InfoRow(label: "Free Developer Profile", value: profile.isFreeProvisioningProfile ? "Yes" : "No")
+                ProfileInfoRow(label: "Team Name", value: profile.teamName)
+                ProfileInfoRow(label: "Team Identifier", value: profile.teamIdentifier)
+                ProfileInfoRow(label: "App Bundle ID", value: profile.bundleIdentifier)
+                ProfileInfoRow(label: "Created", value: formatDate(profile.creationDate))
+                ProfileInfoRow(label: "Expires", value: formatDate(profile.expirationDate))
+                ProfileInfoRow(label: "Free Developer Profile", value: profile.isFreeProvisioningProfile ? "Yes" : "No")
             }
             
             if !profile.certificates.isEmpty {
@@ -198,7 +198,7 @@ struct ProvisioningProfileDetailView: View {
                 }
             }
         }
-        .listStyle(GroupedListStyle())
+        .listStyle(InsetGroupedListStyle())
         .navigationTitle("Profile Details")
         .interactiveDismissDisabled(true)
         .overlay(
@@ -272,6 +272,25 @@ struct InfoRow: View {
     }
 }
 
+struct ProfileInfoRow: View {
+    let label: String
+    let value: String
+    var valueColor: Color = .primary
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.subheadline)
+                .foregroundColor(valueColor)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
 struct EntitlementRow: View {
     let key: String
     let value: Any
@@ -293,7 +312,7 @@ struct EntitlementRow: View {
                 .buttonStyle(BorderlessButtonStyle())
             }
             Text(formatValue(value))
-                .font(.system(.body, design: .monospaced))
+                .font(.system(.subheadline, design: .monospaced))
                 .foregroundColor(.primary)
         }
         .padding(.vertical, 4)

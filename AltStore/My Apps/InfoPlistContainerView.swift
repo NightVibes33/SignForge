@@ -150,7 +150,7 @@ struct PlistNodeRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(node.key)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundColor(.primary)
                         .bold()
                     Text(node.typeInfo)
@@ -174,7 +174,7 @@ struct PlistNodeRow: View {
                         .bold()
                     ScrollView(.horizontal, showsIndicators: false) {
                         Text(node.value ?? "N/A")
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.subheadline)
                             .foregroundColor(.primary)
                             .multilineTextAlignment(.leading)
                     }
@@ -194,7 +194,7 @@ struct PlistNodeRow: View {
                     }
                 } label: {
                     Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundColor(isCopied ? .green : .accentColor)
                         .frame(width: 24, height: 24)
                 }
@@ -500,7 +500,7 @@ struct InfoPlistSemanticView: View {
                                 .foregroundColor(.accentColor)
                                 .frame(width: 24)
                             Text(mode)
-                                .font(.footnote)
+                                .font(.subheadline)
                             Spacer()
                         }
                     }
@@ -513,7 +513,7 @@ struct InfoPlistSemanticView: View {
                     ForEach(queriedSchemes, id: \.self) { scheme in
                         HStack {
                             Text(scheme)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(.subheadline)
                             Spacer()
                         }
                     }
@@ -563,11 +563,11 @@ struct SemanticValueRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundColor(.secondary)
             Spacer()
             Text(value)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.subheadline)
                 .foregroundColor(.primary)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
@@ -613,7 +613,7 @@ struct LocalCopyableDescriptionRow: View {
                     .foregroundColor(isCopied ? .green : .accentColor)
             }
             Text(value)
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundColor(.primary)
         }
         .padding(.vertical, 4)
@@ -641,7 +641,7 @@ struct LocalCopyableValueOnlyRow: View {
     var body: some View {
         HStack {
             Text(value)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.subheadline)
             Spacer()
             Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
                 .font(.caption)
@@ -679,7 +679,7 @@ struct CopyableValueRow: View {
                 
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(formatValue(value))
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.subheadline)
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.leading)
                 }
@@ -720,8 +720,15 @@ struct CopyableValueRow: View {
     
     private func formatValue(_ val: Any) -> String {
         if JSONSerialization.isValidJSONObject(val) {
-            if let data = try? JSONSerialization.data(withJSONObject: val, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
-                return String(data: data, encoding: .utf8) ?? "\(val)"
+            if let data = try? JSONSerialization.data(withJSONObject: val, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]),
+               let string = String(data: data, encoding: .utf8) {
+                let lines = string.components(separatedBy: .newlines)
+                let formatted = lines.map { line -> String in
+                    let leadingSpaces = line.prefix(while: { $0 == " " }).count
+                    let newIndent = String(repeating: " ", count: leadingSpaces * 2)
+                    return newIndent + line.dropFirst(leadingSpaces)
+                }.joined(separator: "\n")
+                return formatted
             }
         }
         if let array = val as? [Any] {
