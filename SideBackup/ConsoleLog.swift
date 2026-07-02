@@ -53,7 +53,7 @@ final class ConsoleLog: Sendable {
 }
 
 // Global print override to shadow Swift's standard print
-func print(_ items: Any..., separator: String = " ", terminator: String = "\n") {
+func debugLog(_ items: Any..., separator: String = " ", terminator: String = "\n") {
     let message = items.map { "\($0)" }.joined(separator: separator)
     ConsoleLog.shared.log(message)
 }

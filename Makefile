@@ -258,7 +258,7 @@ fakesign-sidebackup:
 	@echo ''
 	@echo "fake-signing sidebackup even though it will get resigned, only to retain its entitlements (appGroups)"
 	unzip -q -o SideStore.xcarchive/Products/Applications/SideStore.app/SideBackup.ipa -d SideStore.xcarchive/Products/Applications/SideStore.app/
-	ldid -S SideStore.xcarchive/Products/Applications/SideStore.app/Payload/SideBackup.app/SideBackup
+	ldid -SSideBackup/SideBackup.entitlements SideStore.xcarchive/Products/Applications/SideStore.app/Payload/SideBackup.app/SideBackup
 	pushd "SideStore.xcarchive/Products/Applications/SideStore.app/"  > /dev/null; \
 	rm -f     SideBackup.ipa; \
 	zip -r SideBackup.ipa Payload; \

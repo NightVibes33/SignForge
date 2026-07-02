@@ -98,7 +98,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         DispatchQueue.main.async {
             // Response to the caller/parent app is posted here (url is provided by caller in incoming query params)
             UIApplication.shared.open(responseURL, options: [:]) { (success) in
-                print("Sent response to app with success:", success)
+                debugLog("Sent response to app with success:", success)
             }
         }
     }
