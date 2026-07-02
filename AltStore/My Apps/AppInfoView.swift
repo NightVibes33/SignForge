@@ -119,7 +119,7 @@ struct AppInfoView: View {
                     }
                 }
             }
-            .listStyle(GroupedListStyle())
+            .listStyle(InsetGroupedListStyle())
             .navigationTitle("App Details")
             .navigationBarItems(trailing: SwiftUI.Button("Close") {
                 presentationMode.wrappedValue.dismiss()
@@ -254,9 +254,11 @@ struct InfoRow: View {
     var body: some View {
         HStack {
             Text(label)
+                .font(.subheadline)
                 .foregroundColor(.secondary)
             Spacer()
             Text(value)
+                .font(.subheadline)
                 .foregroundColor(valueColor)
                 .multilineTextAlignment(.trailing)
         }
@@ -359,37 +361,96 @@ struct DeviceIDsView: View {
 struct ExtensionInfoView: View {
     let appExtension: InstalledExtension
     let parentAppURL: URL
-    
-    private var extensionURL: URL {
-        parentAppURL.appendingPathComponent("PlugIns").appendingPathComponent("\(appExtension.name).appex")
+
+    // Resolve the .appex bundle URL by scanning PlugIns/ and matching bundle ID
+    private var extensionURL: URL? {
+        let pluginsDir = parentAppURL.appendingPathComponent("PlugIns")
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: pluginsDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+
+        // Match by bundle ID in Info.plist
+        for url in contents where url.pathExtension == "appex" {
+            let plistURL = url.appendingPathComponent("Info.plist")
+            if let dict = NSDictionary(contentsOf: plistURL) as? [String: Any],
+               let bid = dict["CFBundleIdentifier"] as? String,
+               bid == appExtension.resignedBundleIdentifier || bid == appExtension.bundleIdentifier {
+                return url
+            }
+        }
+        // Fallback: name-based guess
+        return contents.first { $0.pathExtension == "appex" && $0.deletingPathExtension().lastPathComponent == appExtension.name }
     }
-    
+
     private var provisioningProfile: ALTProvisioningProfile? {
-        let profileURL = extensionURL.appendingPathComponent("embedded.mobileprovision")
-        return ALTProvisioningProfile(url: profileURL)
+        guard let url = extensionURL else { return nil }
+        return ALTProvisioningProfile(url: url.appendingPathComponent("embedded.mobileprovision"))
     }
-    
+
     private var infoPlist: [String: Any]? {
-        let plistURL = extensionURL.appendingPathComponent("Info.plist")
-        return NSDictionary(contentsOf: plistURL) as? [String: Any]
+        guard let url = extensionURL else { return nil }
+        return NSDictionary(contentsOf: url.appendingPathComponent("Info.plist")) as? [String: Any]
     }
-    
+
+    // Nested sub-extensions inside this .appex (rare but possible)
+    private var subExtensions: [URL] {
+        guard let url = extensionURL,
+              let contents = try? FileManager.default.contentsOfDirectory(
+                at: url.appendingPathComponent("PlugIns"),
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+              ) else { return [] }
+        return contents.filter { $0.pathExtension == "appex" }
+    }
+
     var body: some View {
         List {
+            // General Metadata — sourced from the actual bundle, not CoreData
             Section(header: Text("Extension Metadata")) {
-                InfoRow(label: "Name", value: appExtension.name)
-                InfoRow(label: "Bundle Identifier", value: appExtension.bundleIdentifier)
-                if appExtension.resignedBundleIdentifier != appExtension.bundleIdentifier {
-                    InfoRow(label: "Resigned Bundle ID", value: appExtension.resignedBundleIdentifier)
+                let plist = infoPlist
+                let profile = provisioningProfile
+
+                let bundleName = plist?["CFBundleDisplayName"] as? String
+                    ?? plist?["CFBundleName"] as? String
+                    ?? appExtension.name
+                let bundleID = plist?["CFBundleIdentifier"] as? String ?? appExtension.bundleIdentifier
+                let shortVer = plist?["CFBundleShortVersionString"] as? String
+                let buildVer = plist?["CFBundleVersion"] as? String
+                let versionStr: String = {
+                    if let s = shortVer, let b = buildVer { return "\(s) (\(b))" }
+                    return shortVer ?? buildVer ?? "N/A"
+                }()
+
+                InfoRow(label: "Name", value: bundleName)
+                InfoRow(label: "Bundle Identifier", value: bundleID)
+                InfoRow(label: "Version", value: versionStr)
+
+                if let minOS = plist?["MinimumOSVersion"] as? String {
+                    InfoRow(label: "Min iOS", value: minOS)
+                }
+                if let exec = plist?["CFBundleExecutable"] as? String {
+                    InfoRow(label: "Executable", value: exec)
+                }
+
+                // Dates from provisioning profile (ground truth)
+                if let profile = profile {
+                    InfoRow(label: "Profile Created", value: formatDate(profile.creationDate))
+                    InfoRow(label: "Profile Expires", value: formatDate(profile.expirationDate))
                 }
             }
-            
+
+            // Provisioning Profile
             if let profile = provisioningProfile {
-                Section(header: Text("Extension Provisioning Profile")) {
+                Section(header: Text("Provisioning Profile")) {
                     NavigationLink(destination: ProvisioningProfileDetailView(profile: profile)) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(profile.name)
                                 .font(.subheadline)
+                            Text("UUID: \(profile.UUID.uuidString)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                             Text("Expires: \(formatDate(profile.expirationDate))")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -397,20 +458,44 @@ struct ExtensionInfoView: View {
                     }
                 }
             }
-            
+
+            // Info.plist
             if let plist = infoPlist {
-                Section(header: Text("Extension Info.plist")) {
+                Section(header: Text("Info.plist")) {
                     NavigationLink(destination: InfoPlistContainerView(plist: plist)) {
                         Text("View Info.plist (\(plist.count) keys)")
+                            .font(.subheadline)
+                    }
+                }
+            }
+
+            // Nested Sub-Extensions (recursive)
+            if !subExtensions.isEmpty {
+                Section(header: Text("Nested Extensions (\(subExtensions.count))")) {
+                    ForEach(subExtensions, id: \.path) { subURL in
+                        let subPlist = NSDictionary(contentsOf: subURL.appendingPathComponent("Info.plist")) as? [String: Any]
+                        let subName = subPlist?["CFBundleDisplayName"] as? String
+                            ?? subPlist?["CFBundleName"] as? String
+                            ?? subURL.deletingPathExtension().lastPathComponent
+                        let subBundleID = subPlist?["CFBundleIdentifier"] as? String ?? "Unknown"
+                        NavigationLink(destination: BundleInspectorView(bundleURL: subURL)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(subName)
+                                    .font(.subheadline)
+                                Text(subBundleID)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
             }
         }
-        .listStyle(GroupedListStyle())
+        .listStyle(InsetGroupedListStyle())
         .navigationTitle(appExtension.name)
         .interactiveDismissDisabled(true)
     }
-    
+
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -418,6 +503,121 @@ struct ExtensionInfoView: View {
         return formatter.string(from: date)
     }
 }
+
+// MARK: - Generic Bundle Inspector (for recursive .appex drill-down)
+
+struct BundleInspectorView: View {
+    let bundleURL: URL
+
+    private var provisioningProfile: ALTProvisioningProfile? {
+        ALTProvisioningProfile(url: bundleURL.appendingPathComponent("embedded.mobileprovision"))
+    }
+
+    private var infoPlist: [String: Any]? {
+        NSDictionary(contentsOf: bundleURL.appendingPathComponent("Info.plist")) as? [String: Any]
+    }
+
+    private var subExtensions: [URL] {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: bundleURL.appendingPathComponent("PlugIns"),
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        return contents.filter { $0.pathExtension == "appex" }
+    }
+
+    private var displayName: String {
+        infoPlist?["CFBundleDisplayName"] as? String
+            ?? infoPlist?["CFBundleName"] as? String
+            ?? bundleURL.deletingPathExtension().lastPathComponent
+    }
+
+    private var bundleID: String {
+        infoPlist?["CFBundleIdentifier"] as? String ?? "Unknown"
+    }
+
+    private var version: String {
+        let short = infoPlist?["CFBundleShortVersionString"] as? String
+        let build = infoPlist?["CFBundleVersion"] as? String
+        if let s = short, let b = build { return "\(s) (\(b))" }
+        return short ?? build ?? "N/A"
+    }
+
+    var body: some View {
+        List {
+            Section(header: Text("Bundle Metadata")) {
+                InfoRow(label: "Name", value: displayName)
+                InfoRow(label: "Bundle ID", value: bundleID)
+                InfoRow(label: "Version", value: version)
+                if let execName = infoPlist?["CFBundleExecutable"] as? String {
+                    InfoRow(label: "Executable", value: execName)
+                }
+                if let minOS = infoPlist?["MinimumOSVersion"] as? String {
+                    InfoRow(label: "Min iOS", value: minOS)
+                }
+            }
+
+            if let profile = provisioningProfile {
+                Section(header: Text("Provisioning Profile")) {
+                    NavigationLink(destination: ProvisioningProfileDetailView(profile: profile)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(profile.name)
+                                .font(.subheadline)
+                            Text("UUID: \(profile.UUID.uuidString)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("Expires: \(formatDate(profile.expirationDate))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+
+            if let plist = infoPlist {
+                Section(header: Text("Info.plist")) {
+                    NavigationLink(destination: InfoPlistContainerView(plist: plist)) {
+                        Text("View Info.plist (\(plist.count) keys)")
+                            .font(.subheadline)
+                    }
+                }
+            }
+
+            if !subExtensions.isEmpty {
+                Section(header: Text("Nested Extensions (\(subExtensions.count))")) {
+                    ForEach(subExtensions, id: \.path) { subURL in
+                        let subPlist = NSDictionary(contentsOf: subURL.appendingPathComponent("Info.plist")) as? [String: Any]
+                        let subName = subPlist?["CFBundleDisplayName"] as? String
+                            ?? subPlist?["CFBundleName"] as? String
+                            ?? subURL.deletingPathExtension().lastPathComponent
+                        let subBundleID = subPlist?["CFBundleIdentifier"] as? String ?? "Unknown"
+                        NavigationLink(destination: BundleInspectorView(bundleURL: subURL)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(subName)
+                                    .font(.subheadline)
+                                Text(subBundleID)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(InsetGroupedListStyle())
+        .navigationTitle(displayName)
+        .navigationBarTitleDisplayMode(.inline)
+        .interactiveDismissDisabled(true)
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
 
 // MARK: - Toast View
 

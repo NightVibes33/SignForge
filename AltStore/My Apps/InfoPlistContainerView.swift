@@ -633,53 +633,30 @@ struct CopyableValueRow: View {
     let key: String
     let value: Any
     
-    @State private var isCopied = false
-    
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(key)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .bold()
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    Text(formatValue(value))
-                        .font(.subheadline)
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.leading)
-                }
-            }
-            Spacer()
+        VStack(alignment: .leading, spacing: 4) {
+            Text(key)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .bold()
             
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(formatValue(value))
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+        .contextMenu {
             SwiftUI.Button {
                 UIPasteboard.general.string = formatValue(value)
-                withAnimation {
-                    isCopied = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation {
-                        isCopied = false
-                    }
-                }
             } label: {
-                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                    .font(.footnote)
-                    .foregroundColor(isCopied ? .green : .accentColor)
-                    .frame(width: 24, height: 24)
+                Label("Copy Value", systemImage: "doc.on.doc")
             }
-            .buttonStyle(.plain)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIPasteboard.general.string = formatValue(value)
-            withAnimation {
-                isCopied = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    isCopied = false
-                }
+            SwiftUI.Button {
+                UIPasteboard.general.string = key
+            } label: {
+                Label("Copy Key", systemImage: "doc.on.doc")
             }
         }
     }
