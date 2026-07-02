@@ -41,7 +41,8 @@ struct PlistNode: Identifiable {
 // MARK: - InfoPlist Mode Enum
 enum InfoPlistMode: String, CaseIterable, Identifiable {
     case tree = "Tree"
-    case raw = "Raw JSON"
+    case rawXML = "Raw XML"
+    case rawJSON = "Raw JSON"
     case semantic = "Semantic"
     
     var id: String { self.rawValue }
@@ -70,7 +71,9 @@ struct InfoPlistContainerView: View {
                 switch selectedMode {
                 case .tree:
                     InfoPlistTreeView(plist: plist)
-                case .raw:
+                case .rawXML:
+                    InfoPlistRawXMLView(plist: plist)
+                case .rawJSON:
                     InfoPlistRawView(plist: plist)
                 case .semantic:
                     InfoPlistSemanticView(plist: plist)
@@ -158,10 +161,12 @@ struct PlistNodeRow: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .bold()
-                    Text(node.value ?? "N/A")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.leading)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Text(node.value ?? "N/A")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.primary)
+                            .multilineTextAlignment(.leading)
+                    }
                 }
                 Spacer()
                 
@@ -196,6 +201,95 @@ struct PlistNodeRow: View {
                         isCopied = false
                     }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Mode 1.5: Raw XML View
+struct InfoPlistRawXMLView: View {
+    let plist: [String: Any]
+    
+    @State private var isCopied = false
+    
+    var xmlString: String {
+        guard let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0),
+              let string = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        return string
+    }
+    
+    var highlightedXML: AttributedString {
+        let xml = xmlString
+        let nsMutable = NSMutableAttributedString(string: xml)
+        nsMutable.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), range: NSRange(location: 0, length: xml.count))
+        nsMutable.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: xml.count))
+        
+        // Highlight XML Tags: <tag> and </tag>
+        if let tagRegex = try? NSRegularExpression(pattern: "</?[a-zA-Z0-9:-]+( [^>]+)*/?>", options: []) {
+            let matches = tagRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
+            for match in matches {
+                nsMutable.addAttribute(.foregroundColor, value: UIColor.systemPurple, range: match.range)
+            }
+        }
+        
+        // Highlight <key> text
+        if let keyRegex = try? NSRegularExpression(pattern: "<key>([^<]+)</key>", options: []) {
+            let matches = keyRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
+            for match in matches {
+                if match.numberOfRanges > 1 {
+                    let textRange = match.range(at: 1)
+                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemBlue, range: textRange)
+                }
+            }
+        }
+        
+        // Highlight <string> text
+        if let stringRegex = try? NSRegularExpression(pattern: "<string>([^<]*)</string>", options: []) {
+            let matches = stringRegex.matches(in: xml, options: [], range: NSRange(location: 0, length: xml.count))
+            for match in matches {
+                if match.numberOfRanges > 1 {
+                    let textRange = match.range(at: 1)
+                    nsMutable.addAttribute(.foregroundColor, value: UIColor.systemGreen, range: textRange)
+                }
+            }
+        }
+        
+        return AttributedString(nsMutable)
+    }
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Spacer()
+                    SwiftUI.Button {
+                        UIPasteboard.general.string = xmlString
+                        withAnimation {
+                            isCopied = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation {
+                                isCopied = false
+                            }
+                        }
+                    } label: {
+                        Label(isCopied ? "Copied!" : "Copy XML", systemImage: isCopied ? "checkmark" : "doc.on.doc")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(isCopied ? .green : .accentColor)
+                }
+                .padding(.horizontal)
+                .padding(.top)
+                
+                Text(highlightedXML)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
             }
         }
     }
@@ -587,11 +681,13 @@ struct CopyableValueRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .bold()
-                Text(formatValue(value))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.primary)
-                    .lineLimit(5)
-                    .multilineTextAlignment(.leading)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(formatValue(value))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.leading)
+                }
             }
             Spacer()
             
@@ -629,7 +725,7 @@ struct CopyableValueRow: View {
     
     private func formatValue(_ val: Any) -> String {
         if JSONSerialization.isValidJSONObject(val) {
-            if let data = try? JSONSerialization.data(withJSONObject: val, options: [.sortedKeys, .withoutEscapingSlashes]) {
+            if let data = try? JSONSerialization.data(withJSONObject: val, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
                 return String(data: data, encoding: .utf8) ?? "\(val)"
             }
         }
