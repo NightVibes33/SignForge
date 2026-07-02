@@ -118,6 +118,14 @@ struct AppInfoView: View {
                         }
                     }
                 }
+
+                // Resources Section
+                Section(header: Text("Resources")) {
+                    NavigationLink(destination: BundleResourceBrowserView(rootURL: appBundleURL, title: "Bundle Contents")) {
+                        Text("Browse Bundle Contents")
+                            .font(.subheadline)
+                    }
+                }
             }
             .listStyle(InsetGroupedListStyle())
             .navigationTitle("App Details")
@@ -601,6 +609,14 @@ struct BundleInspectorView: View {
                             }
                         }
                     }
+                }
+            }
+
+            // Resources
+            Section(header: Text("Resources")) {
+                NavigationLink(destination: BundleResourceBrowserView(rootURL: bundleURL, title: "Bundle Contents")) {
+                    Text("Browse Bundle Contents")
+                        .font(.subheadline)
                 }
             }
         }
