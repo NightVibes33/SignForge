@@ -264,21 +264,55 @@ struct BundleItemRow: View {
     }
 }
 
-// MARK: - IPA Contents View (async extraction)
+// MARK: - IPA Extraction State 
+final class IPAExtraction: ObservableObject {
+    @Published var bundleURL: URL? = nil
+    @Published var isExtracting = true
+    @Published var error: String? = nil
+
+    private var tempDir: URL? = nil
+
+    func extract(from ipaURL: URL) async {
+        guard bundleURL == nil else { return }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BundleInspect_\(UUID().uuidString)")
+        do {
+            let appURL = try await Task.detached(priority: .userInitiated) {
+                try FileManager.default.unzipAppBundle(at: ipaURL, to: dir)
+            }.value
+            await MainActor.run {
+                self.tempDir = dir
+                self.bundleURL = appURL
+                self.isExtracting = false
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error.localizedDescription
+                self.isExtracting = false
+            }
+            try? FileManager.default.removeItem(at: dir)
+        }
+    }
+
+    deinit {
+        // Only runs when the view is truly popped — not on forward navigation
+        if let dir = tempDir {
+            try? FileManager.default.removeItem(at: dir)
+        }
+    }
+}
+
+// MARK: - IPA Contents View
 
 struct IPAContentsView: View {
     let ipaURL: URL
-
-    @State private var bundleURL: URL? = nil
-    @State private var tempDir: URL? = nil
-    @State private var isExtracting = true   // start true so spinner shows immediately
-    @State private var extractionError: String? = nil
+    @StateObject private var extraction = IPAExtraction()
 
     var body: some View {
         Group {
-            if let bundleURL = bundleURL {
+            if let bundleURL = extraction.bundleURL {
                 FullAppBundleView(bundleURL: bundleURL)
-            } else if isExtracting {
+            } else if extraction.isExtracting {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.5)
@@ -289,7 +323,7 @@ struct IPAContentsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle(ipaURL.deletingPathExtension().lastPathComponent)
                 .navigationBarTitleDisplayMode(.inline)
-            } else if let error = extractionError {
+            } else if let error = extraction.error {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 44))
@@ -307,40 +341,10 @@ struct IPAContentsView: View {
                 .navigationBarTitleDisplayMode(.inline)
             }
         }
-        .task { await extract() }
-        .onDisappear { cleanup() }
-    }
-
-    private func extract() async {
-        guard bundleURL == nil else { return }
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("BundleInspect_\(UUID().uuidString)")
-        do {
-            let appURL = try await Task.detached(priority: .userInitiated) {
-                try FileManager.default.unzipAppBundle(at: ipaURL, to: dir)
-            }.value
-            await MainActor.run {
-                tempDir = dir
-                bundleURL = appURL
-                isExtracting = false
-            }
-        } catch {
-            await MainActor.run {
-                extractionError = error.localizedDescription
-                isExtracting = false
-            }
-            try? FileManager.default.removeItem(at: dir)
-        }
-    }
-
-    private func cleanup() {
-        if let dir = tempDir {
-            try? FileManager.default.removeItem(at: dir)
-            tempDir = nil
-            bundleURL = nil
-        }
+        .task { await extraction.extract(from: ipaURL) }
     }
 }
+
 
 // MARK: - Full App Bundle View (for extracted IPA or any .app bundle URL)
 
