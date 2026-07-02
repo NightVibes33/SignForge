@@ -254,18 +254,18 @@ fakesign-apps:
 	ldid -SAltStore/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SideStore.app/SideStore
 	ldid -SAltWidget/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SideStore.app/PlugIns/AltWidgetExtension.appex/AltWidgetExtension
 
-fakesign-altbackup:	
+fakesign-sidebackup:	
 	@echo ''
-	@echo "fake-signing altbackup even though it will get resigned, only to retain its entitlements (appGroups)"
-	unzip -q -o SideStore.xcarchive/Products/Applications/SideStore.app/AltBackup.ipa -d SideStore.xcarchive/Products/Applications/SideStore.app/
-	ldid -SAltBackup/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SideStore.app/Payload/AltBackup.app/AltBackup
+	@echo "fake-signing sidebackup even though it will get resigned, only to retain its entitlements (appGroups)"
+	unzip -q -o SideStore.xcarchive/Products/Applications/SideStore.app/SideBackup.ipa -d SideStore.xcarchive/Products/Applications/SideStore.app/
+	ldid -S SideStore.xcarchive/Products/Applications/SideStore.app/Payload/SideBackup.app/SideBackup
 	pushd "SideStore.xcarchive/Products/Applications/SideStore.app/"  > /dev/null; \
-	rm -f     AltBackup.ipa; \
-	zip -r AltBackup.ipa Payload; \
+	rm -f     SideBackup.ipa; \
+	zip -r SideBackup.ipa Payload; \
 	popd  > /dev/null
 	@rm -rf SideStore.xcarchive/Products/Applications/SideStore.app/Payload
 
-fakesign: fakesign-apps fakesign-altbackup				
+fakesign: fakesign-apps fakesign-sidebackup				
 
 
 ipa:
@@ -291,10 +291,10 @@ ROOT_DIR 			:= $(if $(ROOT_DIR),$(ROOT_DIR),$(if $(CODESIGNING_FOLDER_PATH),$(CO
 VAR_USED			:= $(if $(CONFIGURATION_BUILD_DIR),"CONFIGURATION_BUILD_DIR",$(if $(CODESIGNING_FOLDER_PATH),"CODESIGNING_FOLDER_PATH","?"))
 
 TARGET_BUILD_DIR 	:= build
-TARGET_ARCHIVE_DIR 	:= altbackup.xcarchive
-TARGET_NAME 		:= AltBackup.app
-TARGET_DSYM_NAME 	:= AltBackup.app.dSYM
-TARGET_IPA_NAME 	:= AltBackup.ipa
+TARGET_ARCHIVE_DIR 	:= sidebackup.xcarchive
+TARGET_NAME 		:= SideBackup.app
+TARGET_DSYM_NAME 	:= SideBackup.app.dSYM
+TARGET_IPA_NAME 	:= SideBackup.ipa
 
 
 ALT_APP_SRC_PARENT 	:= $(shell readlink -f "$(ROOT_DIR)")
@@ -318,7 +318,7 @@ checkPaths:
 	fi
 
 
-copy-altbackup: checkPaths
+copy-sidebackup: checkPaths
 	@echo ''
 	@echo "  CONFIGURATION_BUILD_DIR = '$(CONFIGURATION_BUILD_DIR)'"
 	@echo "  CODESIGNING_FOLDER_PATH = '$(CODESIGNING_FOLDER_PATH)'"
@@ -358,31 +358,31 @@ copy-altbackup: checkPaths
 	@find "$(ALT_APP_DST_ARCHIVE)" -maxdepth 4 -exec ls -ld {} + || true
 	@echo ''
 
-# fakesign-altbackup: copy-altbackup
+# fakesign-sidebackup: copy-sidebackup
 # 	@echo "  Adding homebrew binaries to path and invoke ldid"
 # 	@export PATH="/usr/local/bin:/opt/homebrew/bin:$$PATH"; \
-# 	ldid -SAltBackup/Resources/ReleaseEntitlements.plist $(ALT_APP)
+# 	ldid -SSideBackup/Resources/ReleaseEntitlements.plist $(ALT_APP)
 # 	@echo "  fakesign completed"
 # 	@echo ""
 	
-# ipa-altbackup:
-ipa-altbackup: checkPaths copy-altbackup 
-# ipa-altbackup: checkPaths copy-altbackup fakesign-altbackup
-	@echo "  Creating IPA for AltBackup"
+# ipa-sidebackup:
+ipa-sidebackup: checkPaths copy-sidebackup 
+# ipa-sidebackup: checkPaths copy-sidebackup fakesign-sidebackup
+	@echo "  Creating IPA for SideBackup"
 	@rm -rf 	"$(ALT_APP_PAYLOAD_DST)"
 	@mkdir -p 	"$(ALT_APP_PAYLOAD_DST)/$(TARGET_NAME)"
 	@echo " Copying from $(ALT_APP_SRC) into $(ALT_APP_PAYLOAD_DST)"
 	@cp -R -f	"$(ALT_APP_SRC)/." "$(ALT_APP_PAYLOAD_DST)/$(TARGET_NAME)"
 	@pushd 		"$(ALT_APP_DST_ARCHIVE)" && zip -r "../../$(ALT_APP_IPA_DST)" Payload || popd
-	@echo "  IPA created: build/AltBackup.ipa"
+	@echo "  IPA created: build/SideBackup.ipa"
 
-clean-altbackup:
+clean-sidebackup:
 	@echo ""
-	@echo "====> Cleaning up AltBackup related artifacts <===="
-	@rm -rf build/altbackup.xcarchive/
-	@rm -f build/AltBackup.ipa
-    #@rm -f AltStore/Resources/AltBackup.ipa
+	@echo "====> Cleaning up SideBackup related artifacts <===="
+	@rm -rf build/sidebackup.xcarchive/
+	@rm -f build/SideBackup.ipa
+    #@rm -f AltStore/Resources/SideBackup.ipa
 
-clean: clean-altbackup
+clean: clean-sidebackup
 	@rm -rf SideStore.ipa
 	@rm -rf build/

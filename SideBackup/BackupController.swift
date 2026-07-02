@@ -129,7 +129,7 @@ class BackupController: NSObject
     
     override init()
     {
-        self.operationQueue.name = "AltBackup-BackupQueue"
+        self.operationQueue.name = "SideBackup-BackupQueue"
     }
     
     func performBackup(completionHandler: @escaping (Result<Void, Error>) -> Void)
