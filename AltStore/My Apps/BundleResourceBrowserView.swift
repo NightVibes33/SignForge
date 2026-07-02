@@ -63,10 +63,13 @@ struct BundleResourceBrowserView: View {
             }
         }
         .listStyle(InsetGroupedListStyle())
-        .navigationTitle(title)
+        .navigationTitle(isSelecting
+            ? (selectedURLs.isEmpty ? "Select Files" : "\(selectedURLs.count) selected")
+            : title)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchQuery, prompt: "Search files")
         .toolbar {
+            // Trailing: Select / Done
             ToolbarItem(placement: .navigationBarTrailing) {
                 SwiftUI.Button(isSelecting ? "Done" : "Select") {
                     withAnimation {
@@ -75,16 +78,14 @@ struct BundleResourceBrowserView: View {
                     }
                 }
             }
-            ToolbarItemGroup(placement: .bottomBar) {
-                if isSelecting && !selectedURLs.isEmpty {
-                    Spacer()
+            // Leading Share — must wrap the ENTIRE ToolbarItem in the conditional
+            if isSelecting && !selectedURLs.isEmpty {
+                ToolbarItem(placement: .navigationBarLeading) {
                     SwiftUI.Button {
                         showingShareSheet = true
                     } label: {
-                        Label("Share \(selectedURLs.count) item\(selectedURLs.count == 1 ? "" : "s")",
-                              systemImage: "square.and.arrow.up")
+                        Image(systemName: "square.and.arrow.up")
                     }
-                    Spacer()
                 }
             }
         }
