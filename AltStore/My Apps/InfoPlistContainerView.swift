@@ -40,10 +40,10 @@ struct PlistNode: Identifiable {
 
 // MARK: - InfoPlist Mode Enum
 enum InfoPlistMode: String, CaseIterable, Identifiable {
-    case tree = "Tree"
-    case rawXML = "Raw XML"
-    case rawJSON = "Raw JSON"
     case semantic = "Semantic"
+    case tree = "Tree"
+    case rawJSON = "Raw JSON"
+    case rawXML = "Raw XML"
     
     var id: String { self.rawValue }
 }
@@ -52,7 +52,16 @@ enum InfoPlistMode: String, CaseIterable, Identifiable {
 struct InfoPlistContainerView: View {
     let plist: [String: Any]
     
-    @State private var selectedMode: InfoPlistMode = .tree
+    @State private var selectedMode: InfoPlistMode = .semantic
+    
+    // Parent level cache to persist formatting output between tab switches
+    @State private var xmlString: String = ""
+    @State private var highlightedXML: AttributedString = AttributedString("")
+    @State private var isXMLLoading = false
+    
+    @State private var jsonString: String = ""
+    @State private var highlightedJSON: AttributedString = AttributedString("")
+    @State private var isJSONLoading = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -71,17 +80,28 @@ struct InfoPlistContainerView: View {
                 switch selectedMode {
                 case .tree:
                     InfoPlistTreeView(plist: plist)
-                case .rawXML:
-                    InfoPlistRawXMLView(plist: plist)
-                case .rawJSON:
-                    InfoPlistRawView(plist: plist)
                 case .semantic:
                     InfoPlistSemanticView(plist: plist)
+                case .rawJSON:
+                    InfoPlistRawView(
+                        plist: plist,
+                        jsonString: $jsonString,
+                        highlightedJSON: $highlightedJSON,
+                        isLoading: $isJSONLoading
+                    )
+                case .rawXML:
+                    InfoPlistRawXMLView(
+                        plist: plist,
+                        xmlString: $xmlString,
+                        highlightedXML: $highlightedXML,
+                        isLoading: $isXMLLoading
+                    )
                 }
             }
         }
         .navigationTitle("Info.plist")
         .navigationBarTitleDisplayMode(.inline)
+        .interactiveDismissDisabled(true)
     }
 }
 
@@ -207,13 +227,16 @@ struct PlistNodeRow: View {
 }
 
 // MARK: - Mode 1.5: Raw XML View
+// MARK: - Mode 1.5: Raw XML View
 struct InfoPlistRawXMLView: View {
     let plist: [String: Any]
     
     @State private var isCopied = false
     @State private var isWrapped = true
-    @State private var xmlString: String = ""
-    @State private var highlightedXML: AttributedString = AttributedString("")
+    
+    @Binding var xmlString: String
+    @Binding var highlightedXML: AttributedString
+    @Binding var isLoading: Bool
     
     var body: some View {
         ScrollView {
@@ -251,29 +274,47 @@ struct InfoPlistRawXMLView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                if isWrapped {
-                    Text(highlightedXML)
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(8)
-                        .padding(.horizontal)
+                if isLoading {
+                    HStack {
+                        Spacer()
+                        ProgressView("Formatting XML...")
+                            .padding()
+                        Spacer()
+                    }
                 } else {
-                    ScrollView(.horizontal, showsIndicators: true) {
+                    if isWrapped {
                         Text(highlightedXML)
                             .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
+                            .padding(.horizontal)
+                    } else {
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            Text(highlightedXML)
+                                .padding()
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(8)
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
             }
         }
         .onAppear {
-            if xmlString.isEmpty {
-                let generatedXML = generateXMLString(from: plist)
-                xmlString = generatedXML
-                highlightedXML = highlightXML(generatedXML)
+            if xmlString.isEmpty && !isLoading {
+                isLoading = true
+                let localPlist = plist
+                Task.detached(priority: .userInitiated) {
+                    let generatedXML = self.generateXMLString(from: localPlist)
+                    let highlighted = self.highlightXML(generatedXML)
+                    
+                    await MainActor.run {
+                        self.xmlString = generatedXML
+                        self.highlightedXML = highlighted
+                        self.isLoading = false
+                    }
+                }
             }
         }
     }
@@ -328,8 +369,10 @@ struct InfoPlistRawView: View {
     
     @State private var isCopied = false
     @State private var isWrapped = true
-    @State private var jsonString: String = ""
-    @State private var highlightedJSON: AttributedString = AttributedString("")
+    
+    @Binding var jsonString: String
+    @Binding var highlightedJSON: AttributedString
+    @Binding var isLoading: Bool
     
     var body: some View {
         ScrollView {
@@ -367,29 +410,47 @@ struct InfoPlistRawView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                if isWrapped {
-                    Text(highlightedJSON)
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(8)
-                        .padding(.horizontal)
+                if isLoading {
+                    HStack {
+                        Spacer()
+                        ProgressView("Formatting JSON...")
+                            .padding()
+                        Spacer()
+                    }
                 } else {
-                    ScrollView(.horizontal, showsIndicators: true) {
+                    if isWrapped {
                         Text(highlightedJSON)
                             .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
+                            .padding(.horizontal)
+                    } else {
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            Text(highlightedJSON)
+                                .padding()
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(8)
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
             }
         }
         .onAppear {
-            if jsonString.isEmpty {
-                let generatedJSON = generateJSONString(from: plist)
-                jsonString = generatedJSON
-                highlightedJSON = highlightJSON(generatedJSON)
+            if jsonString.isEmpty && !isLoading {
+                isLoading = true
+                let localPlist = plist
+                Task.detached(priority: .userInitiated) {
+                    let generatedJSON = self.generateJSONString(from: localPlist)
+                    let highlighted = self.highlightJSON(generatedJSON)
+                    
+                    await MainActor.run {
+                        self.jsonString = generatedJSON
+                        self.highlightedJSON = highlighted
+                        self.isLoading = false
+                    }
+                }
             }
         }
     }

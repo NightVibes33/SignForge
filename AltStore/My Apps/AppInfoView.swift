@@ -200,6 +200,7 @@ struct ProvisioningProfileDetailView: View {
         }
         .listStyle(GroupedListStyle())
         .navigationTitle("Profile Details")
+        .interactiveDismissDisabled(true)
         .overlay(
             AppInfoToastView(isShowing: $isShowingToast, message: toastMessage)
         )
@@ -330,6 +331,7 @@ struct DeviceIDsView: View {
             }
         }
         .navigationTitle("Device IDs")
+        .interactiveDismissDisabled(true)
     }
 }
 
@@ -387,6 +389,7 @@ struct ExtensionInfoView: View {
         }
         .listStyle(GroupedListStyle())
         .navigationTitle(appExtension.name)
+        .interactiveDismissDisabled(true)
     }
     
     private func formatDate(_ date: Date) -> String {
