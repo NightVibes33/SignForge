@@ -69,7 +69,6 @@ extension SettingsViewController
         case errorLog
         case clearCache
     }
-    
     private enum AdvancedSettingsRow: Int, CaseIterable
     {
         case sendFeedback           // row 0 - Send Feedback
@@ -80,9 +79,10 @@ extension SettingsViewController
         case vpnConfiguration       // row 5 - VPN Configuration
         case cacheManagement        // row 6 - Cache Management
         case certificateManagement  // row 7 - Certificate Management
-        case exportResignedApp      // row 8 - Export Resigned Apps (moved here from diagnostics)
-        case enableEMPForWiregaurd  // row 9 - Enable EMP for wireguard
-        case customizeAppId         // row 10 - Enable AppId Customization
+        case wirelessPair           // row 8 - Wireless Pairing (only iOS 26+)
+        case exportResignedApp      // row 9 - Export Resigned Apps (moved here from diagnostics)
+        case enableEMPForWiregaurd  // row 10 - Enable EMP for wireguard
+        case customizeAppId         // row 11 - Enable AppId Customization
     }
     
     private enum SigningSettingsRow: Int, CaseIterable {
@@ -390,10 +390,10 @@ final class SettingsViewController: UITableViewController
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "anisetteServers" || segue.identifier == "certificateManagement" {
+        if segue.identifier == "anisetteServers" || segue.identifier == "certificateManagement" || segue.identifier == "wirelessPairing" {
             let controller = segue.destination
             
-            if segue.identifier == "certificateManagement" {
+            if segue.identifier == "certificateManagement" || segue.identifier == "wirelessPairing" {
                 let appearance = UINavigationBarAppearance()
                 appearance.configureWithDefaultBackground()
                 appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
@@ -1031,6 +1031,22 @@ extension SettingsViewController
         return numberOfSections
     }
     
+    override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat
+    {
+        let section = Section.allCases[indexPath.section]
+        if section == .advancedSettings {
+            let row = AdvancedSettingsRow.allCases[indexPath.row]
+            if row == .wirelessPair {
+                if #available(iOS 26.0, *) {
+                    return super.tableView(tableView, heightForRowAt: indexPath)
+                } else {
+                    return 0
+                }
+            }
+        }
+        return super.tableView(tableView, heightForRowAt: indexPath)
+    }
+    
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
     {
         let section = Section.allCases[section]
@@ -1040,13 +1056,26 @@ extension SettingsViewController
         case .signIn: return (self.activeTeam == nil) ? 1 : 0
         case .account: return (self.activeTeam == nil) ? 0 : 3
         case .appRefresh: return AppRefreshRow.allCases.count
+        case .advancedSettings: return AdvancedSettingsRow.allCases.count
         default: return super.tableView(tableView, numberOfRowsInSection: section.rawValue)
         }
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
+        let section = Section.allCases[indexPath.section]
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
+        
+        if section == .advancedSettings {
+            let row = AdvancedSettingsRow.allCases[indexPath.row]
+            if row == .wirelessPair {
+                if #available(iOS 26.0, *) {
+                    // Custom styles or details for Wireless Pairing if needed
+                } else {
+                    cell.isHidden = true
+                }
+            }
+        }
         
         if #available(iOS 14, *) {}
         else if let cell = cell as? InsetGroupTableViewCell,
@@ -1415,6 +1444,15 @@ extension SettingsViewController
                 let certificateManagementView = CertificatesView(presentingViewController: self)
                 let vc = UIHostingController(rootView: certificateManagementView)
                 self.prepare(for: UIStoryboardSegue(identifier: "certificateManagement", source: self, destination: vc), sender: nil)
+                
+            case .wirelessPair:
+                if #available(iOS 26.0, *) {
+                    let wirelessPairView = WirelessPairView()
+                    let vc = UIHostingController(rootView: wirelessPairView)
+                    self.prepare(for: UIStoryboardSegue(identifier: "wirelessPairing", source: self, destination: vc), sender: nil)
+                } else {
+                    break
+                }
                 
             case .cacheManagement:
                 let cacheManagementView = CacheManagementView()

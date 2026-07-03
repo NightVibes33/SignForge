@@ -98,8 +98,8 @@ func minimuxerStart(_ pairingFile: String) throws {
     // observe background errors
     Minimuxer.onBackgroundError = { error in
         guard let bgError = error as? MinimuxerBackgroundError else { return }
-        if bgError.component == .heartbeat {
-            print("[SideStore] Heartbeat failure detected in background, scheduling minimuxer services restart...")
+        if bgError.component == .mounter {
+            print("[SideStore] Minimuxer background error (\(bgError.component)): \(bgError.error), scheduling restart/pairing prompt...")
             markMuxerServicesNeedsRestart(error: bgError.error)
         }
     }
