@@ -88,7 +88,7 @@ struct CertificateRowView: View {
             if hasPrivateKey {
                 CertPrivateKeyMenuItems(cert: cert, viewModel: viewModel, onExportP12: onExportP12, onClearKey: onClearKey)
             } else {
-                CertPublicKeyMenuItems(cert: cert, viewModel: viewModel, onAddKeyBin: onAddKeyBin, onAddKeyText: onAddKeyText)
+                CertPublicKeyMenuItems(cert: cert, viewModel: viewModel, onAddKeyBin: onAddKeyBin, onAddKeyText: onAddKeyText, onExportP12: onExportP12)
             }
             if viewModel.isCertificateLocallyCached(cert) {
                 SwiftUI.Button(role: .destructive) { onDelete() } label: {
@@ -158,6 +158,9 @@ private struct CertPrivateKeyMenuItems: View {
     var body: some View {
         Group {
             SwiftUI.Button { onExportP12() } label: { Label("Export (.p12)", systemImage: "square.and.arrow.up") }
+            SwiftUI.Button { CertificateExporter.sharePublicCertAsPEM(cert) { viewModel.errorMessage = $0 } } label: { Label("Export (.pem)", systemImage: "square.and.arrow.up") }
+            SwiftUI.Button { CertificateExporter.sharePublicCertAsDER(cert) { viewModel.errorMessage = $0 } } label: { Label("Export (.der)", systemImage: "square.and.arrow.up") }
+            SwiftUI.Button { CertificateExporter.copyPublicCertAsPEM(cert) { viewModel.errorMessage = $0 } } label: { Label("Copy (.pem)", systemImage: "doc.on.doc") }
             SwiftUI.Button { CertificateExporter.copyPrivateKey(cert) } label: { Label("Copy Private Key", systemImage: "doc.on.doc") }
             SwiftUI.Button { CertificateExporter.sharePrivateKeyAsPEM(cert) { viewModel.errorMessage = $0 } } label: { Label("Export Key (.pem)", systemImage: "key") }
             SwiftUI.Button { CertificateExporter.sharePrivateKeyAsDER(cert) { viewModel.errorMessage = $0 } } label: { Label("Export Key (.der)", systemImage: "key") }
@@ -171,13 +174,15 @@ private struct CertPublicKeyMenuItems: View {
     @ObservedObject var viewModel: CertificatesViewModel
     var onAddKeyBin:  () -> Void
     var onAddKeyText: () -> Void
+    var onExportP12:  () -> Void
     
     var body: some View {
         Group {
             SwiftUI.Button { onAddKeyText() } label: { Label("Add pKey (text)", systemImage: "square.and.pencil") }
             SwiftUI.Button { onAddKeyBin() } label: { Label("Add pKey (bin)", systemImage: "doc.badge.plus") }
-            SwiftUI.Button { CertificateExporter.sharePublicCertAsDER(cert) { viewModel.errorMessage = $0 } } label: { Label("Export (.der)", systemImage: "square.and.arrow.up") }
+            SwiftUI.Button { onExportP12() } label: { Label("Export (.p12)", systemImage: "square.and.arrow.up") }
             SwiftUI.Button { CertificateExporter.sharePublicCertAsPEM(cert) { viewModel.errorMessage = $0 } } label: { Label("Export (.pem)", systemImage: "square.and.arrow.up") }
+            SwiftUI.Button { CertificateExporter.sharePublicCertAsDER(cert) { viewModel.errorMessage = $0 } } label: { Label("Export (.der)", systemImage: "square.and.arrow.up") }
             SwiftUI.Button { CertificateExporter.copyPublicCertAsPEM(cert) { viewModel.errorMessage = $0 } } label: { Label("Copy (.pem)", systemImage: "doc.on.doc") }
         }
     }
