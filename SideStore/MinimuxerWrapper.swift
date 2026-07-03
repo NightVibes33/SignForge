@@ -36,6 +36,7 @@ enum MinimuxerStatus {
     case ready
     case noConnection
     case noVPN
+    case invalidPairingFile
 }
 
 extension MinimuxerStatus {
@@ -47,6 +48,8 @@ extension MinimuxerStatus {
             return .noConnection
         case .noVPN:
             return .noVPN
+        case .invalidPairingFile:
+            return .invalidPairingFile
         }
     }
 }
@@ -56,6 +59,10 @@ var minimuxerStatus: MinimuxerStatus {
     print("[SideStore] minimuxerStatus = true on simulator")
     return .ready
     #else
+    if AppManager.needsMuxerServicesRestart && (AppManager.muxerRestartError as? MinimuxerError) == .PairingFile {
+        return .invalidPairingFile
+    }
+    
     let result = Minimuxer.ready()
     switch result {
     case .success(let isReady):
@@ -65,8 +72,10 @@ var minimuxerStatus: MinimuxerStatus {
         print("[SideStore] minimuxerStatus = false, error: \(error)")
         if error == .NoConnection {
             return .noConnection
-        } else {
+        } else if error == .NoVPN {
             return .noVPN
+        } else {
+            return .invalidPairingFile
         }
     }
     #endif

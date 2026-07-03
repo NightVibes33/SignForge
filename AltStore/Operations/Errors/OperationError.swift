@@ -58,7 +58,8 @@ extension OperationError
         case cacheClearError//(errors: [String])
         case noConnection
         case noVPN
-        
+        case invalidPairingFile
+
         case invalidOperationContext
     }
     
@@ -77,6 +78,7 @@ extension OperationError
     
     static let noConnection: OperationError = .init(code: .noConnection)
     static let noVPN: OperationError = .init(code: .noVPN)
+    static let invalidPairingFile: OperationError = .init(code: .invalidPairingFile)
     static let tooNewError: OperationError = .init(code: .tooNewError)
     static let provisioningError: OperationError = .init(code: .provisioningError)
     static let anisetteV1Error: OperationError = .init(code: .anisetteV1Error)
@@ -223,6 +225,7 @@ struct OperationError: ALTLocalizedError {
             return String(format: NSLocalizedString("SideStore was denied permission to launch %@.", comment: ""), appName)
         case .noConnection: return NSLocalizedString("You do not appear to be connected to Wi-Fi, Bridge or a Wired network connection!\n\nPlease connect to a Wi-Fi, Bridge or Wired connection before attempting futher operations", comment: "")
         case .noVPN: return NSLocalizedString("You do not appear to be connected to VPN.\n\nPlease make sure LocalDevVPN is connected and running! If the issue persists, replace your pairing with iloader or try restarting the device.", comment: "")
+        case .invalidPairingFile: return NSLocalizedString("The current pairing file is invalid or missing.\n\nPlease make sure to input a valid pairing file! If the issue persists, replace your pairing with iloader.", comment: "")
         case .tooNewError: return NSLocalizedString("iOS 17.0-17.3.1 changed how JIT is enabled so SideStore cannot enable JIT without SideJITServer on these versions, sorry for any inconvenience.", comment: "")
         case .unableToConnectSideJIT: return NSLocalizedString("Unable to connect to SideJITServer. Please check that you are on the same Wi-Fi of and your Firewall has been set correctly on your server.", comment: "")
         case .unableToRespondSideJITDevice: return NSLocalizedString("SideJITServer is unable to connect to your iDevice. Please make sure you have paired your iDevice by running 'SideJITServer -y', or try refreshing SideJITServer from Settings.", comment: "")
@@ -275,6 +278,7 @@ struct OperationError: ALTLocalizedError {
         {
         case .noConnection: return NSLocalizedString("Connect to a Wi-Fi network, Bridge or a Wired network connection!", comment: "")
         case .noVPN: return NSLocalizedString("Make sure LocalDevVPN is connected and running!", comment: "")
+        case .invalidPairingFile: return NSLocalizedString("Import a valid mobiledevicepairing file.", comment: "")
         case .serverNotFound: return NSLocalizedString("Make sure you're on the same Wi-Fi network as a computer running AltServer, or try connecting this device to your computer via USB.", comment: "")
         case .maximumAppIDLimitReached:
             let baseMessage = NSLocalizedString("Delete sideloaded apps to free up App ID slots.", comment: "")
