@@ -7,6 +7,7 @@
 //
 import SwiftUI
 
+@MainActor
 class ConsoleLogViewModel: ObservableObject {
     @Published var logLines: [String] = []
     
@@ -15,14 +16,16 @@ class ConsoleLogViewModel: ObservableObject {
     @Published var searchResults: [Int] = []  // Stores indices of matching lines
     
     private var fileWatcher: DispatchSourceFileSystemObject?
-    
-    private let backgroundQueue = DispatchQueue(label: "com.myapp.backgroundQueue", qos: .background)
     private var logURL: URL
+    private var lastReadOffset: UInt64 = 0
     
     init(logURL: URL) {
         self.logURL = logURL
         startFileWatcher() // Start monitoring the log file for changes
-        reloadLogData() // Load initial log data
+        
+        Task {
+            await reloadLogData(isInitial: true)
+        }
     }
     
     private func startFileWatcher() {
@@ -32,26 +35,63 @@ class ConsoleLogViewModel: ObservableObject {
             return
         }
         
-        fileWatcher = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fileDescriptor, eventMask: .write, queue: backgroundQueue)
-        fileWatcher?.setEventHandler {
-            self.reloadLogData()
+        let queue = DispatchQueue(label: "com.myapp.backgroundQueue", qos: .background)
+        fileWatcher = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fileDescriptor, eventMask: .write, queue: queue)
+        fileWatcher?.setEventHandler { [weak self] in
+            Task { [weak self] in
+                await self?.reloadLogData(isInitial: false)
+            }
+        }
+        fileWatcher?.setCancelHandler {
+            close(fileDescriptor)
         }
         fileWatcher?.resume()
     }
     
-    private func reloadLogData() {
-        if let fileContents = try? String(contentsOf: logURL) {
-            let lines = fileContents.split(whereSeparator: \.isNewline).map { String($0) }
-            DispatchQueue.main.async {
-                self.logLines = lines
+    private func reloadLogData(isInitial: Bool) async {
+        let logURL = self.logURL
+        let lastReadOffset = self.lastReadOffset
+        
+        let result = await Task.detached(priority: .userInitiated) { () -> (lines: [String], newOffset: UInt64, isReset: Bool)? in
+            do {
+                let fileHandle = try FileHandle(forReadingFrom: logURL)
+                defer { try? fileHandle.close() }
+                
+                let currentSize = try fileHandle.seekToEnd()
+                if isInitial || currentSize < lastReadOffset {
+                    try fileHandle.seek(toOffset: 0)
+                    if let data = try fileHandle.readToEnd() {
+                        let content = String(decoding: data, as: UTF8.self)
+                        let lines = content.split(whereSeparator: \.isNewline).map { String($0) }
+                        return (lines, currentSize, true)
+                    }
+                } else if currentSize > lastReadOffset {
+                    try fileHandle.seek(toOffset: lastReadOffset)
+                    if let data = try fileHandle.readToEnd() {
+                        let content = String(decoding: data, as: UTF8.self)
+                        let lines = content.split(whereSeparator: \.isNewline).map { String($0) }
+                        return (lines, currentSize, false)
+                    }
+                }
+            } catch {
+                print("Error reading log file: \(error)")
             }
+            return nil
+        }.value
+        
+        guard let result = result else { return }
+        
+        self.lastReadOffset = result.newOffset
+        if result.isReset {
+            self.logLines = result.lines
+        } else {
+            self.logLines.append(contentsOf: result.lines)
         }
     }
     
     deinit {
         fileWatcher?.cancel()
     }
-    
     
     func performSearch() {
         searchResults = logLines.enumerated()
