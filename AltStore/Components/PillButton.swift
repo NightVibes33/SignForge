@@ -40,7 +40,10 @@ class PillButton: UIButton
             
             let isUserInteractionEnabled = self.isUserInteractionEnabled
             self.isIndicatingActivity = (self.progress != nil)
-            self.isUserInteractionEnabled = isUserInteractionEnabled
+            if self.progress != nil
+            {
+                self.isUserInteractionEnabled = isUserInteractionEnabled
+            }
             
             self.update()
         }
