@@ -49,10 +49,7 @@ class CertificatesViewModel: ObservableObject {
     @Published var isGlobalHideActive = false {
         didSet { revealedSerials.removeAll() }
     }
-    @Published var isPrivateSectionHideActive = false {
-        didSet { revealedSerials.removeAll() }
-    }
-    @Published var isPublicSectionHideActive = false {
+    @Published var isSectionHideActive = false {
         didSet { revealedSerials.removeAll() }
     }
     @Published var revealedSerials: Set<String> = []
@@ -555,45 +552,59 @@ class CertificatesViewModel: ObservableObject {
     }
     
     func displayActiveSerial(_ activeSerial: String) -> String {
-        let isRevealed = revealedSerials.contains("active_" + activeSerial)
-        if isGlobalHideActive         && !isRevealed { return "••••••••••••••••" }
-        if isPrivateSectionHideActive && !isRevealed { return maskPartially(activeSerial) }
+        if isActiveSerialMasked(activeSerial) {
+            if isGlobalHideActive { return "••••••••••••••••" }
+            return maskPartially(activeSerial)
+        }
         return activeSerial
     }
     
-    func displaySerial(for cert: ALTCertificate, hasPrivateKey: Bool) -> String {
+    func isSerialMasked(for cert: ALTCertificate, hasPrivateKey: Bool) -> Bool {
         let isRevealed      = revealedSerials.contains(cert.serialNumber)
-        let isSectionHidden = hasPrivateKey ? isPrivateSectionHideActive : isPublicSectionHideActive
-        if isGlobalHideActive && !isRevealed { return "••••••••••••••••" }
-        if isSectionHidden    && !isRevealed { return maskPartially(cert.serialNumber) }
+        let isSectionHidden = isSectionHideActive
+        if isGlobalHideActive || isSectionHidden {
+            return !isRevealed
+        } else {
+            return isRevealed
+        }
+    }
+    
+    func isActiveSerialMasked(_ activeSerial: String) -> Bool {
+        let isRevealed = revealedSerials.contains("active_" + activeSerial)
+        if isGlobalHideActive || isSectionHideActive {
+            return !isRevealed
+        } else {
+            return isRevealed
+        }
+    }
+    
+    func displaySerial(for cert: ALTCertificate, hasPrivateKey: Bool) -> String {
+        if isSerialMasked(for: cert, hasPrivateKey: hasPrivateKey) {
+            if isGlobalHideActive { return "••••••••••••••••" }
+            return maskPartially(cert.serialNumber)
+        }
         return cert.serialNumber
     }
     
     func displayIdentifier(for cert: ALTCertificate, hasPrivateKey: Bool) -> String? {
         guard let ident = cert.identifier else { return nil }
-        let isRevealed      = revealedSerials.contains(cert.serialNumber)
-        let isSectionHidden = hasPrivateKey ? isPrivateSectionHideActive : isPublicSectionHideActive
-        if (isGlobalHideActive || isSectionHidden) && !isRevealed { return "••••••••••" }
+        if isSerialMasked(for: cert, hasPrivateKey: hasPrivateKey) { return "••••••••••" }
         return ident
     }
     
     func displayRequester(for cert: ALTCertificate, hasPrivateKey: Bool) -> String? {
         guard let req = cert.requesterEmail, !req.isEmpty else { return nil }
-        let isRevealed      = revealedSerials.contains(cert.serialNumber)
-        let isSectionHidden = hasPrivateKey ? isPrivateSectionHideActive : isPublicSectionHideActive
-        if (isGlobalHideActive || isSectionHidden) && !isRevealed { return "••••••••••" }
+        if isSerialMasked(for: cert, hasPrivateKey: hasPrivateKey) { return "••••••••••" }
         return req
     }
     
     func displayBriefType(for brief: CertificateBriefInfo, cert: ALTCertificate) -> String {
-        let isRevealed = revealedSerials.contains(cert.serialNumber)
-        if isGlobalHideActive && !isRevealed { return "••••••••••" }
+        if isSerialMasked(for: cert, hasPrivateKey: cert.privateKey != nil) { return "••••••••••" }
         return brief.type
     }
     
     func displayBriefValidity(for brief: CertificateBriefInfo, cert: ALTCertificate) -> String {
-        let isRevealed = revealedSerials.contains(cert.serialNumber)
-        if isGlobalHideActive && !isRevealed { return "••••••••••" }
+        if isSerialMasked(for: cert, hasPrivateKey: cert.privateKey != nil) { return "••••••••••" }
         return "\(brief.validFrom) - \(brief.validUntil)"
     }
     

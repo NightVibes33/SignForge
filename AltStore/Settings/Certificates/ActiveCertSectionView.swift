@@ -55,14 +55,14 @@ struct ActiveCertSectionView: View {
                 .padding(.vertical, 4)
                 .contentShape(Rectangle())
                 .contextMenu {
-                    let key        = "active_" + activeSerial
-                    let isRevealed = viewModel.revealedSerials.contains(key)
+                    let key      = "active_" + activeSerial
+                    let isMasked = viewModel.isActiveSerialMasked(activeSerial)
                     SwiftUI.Button {
-                        if isRevealed { viewModel.revealedSerials.remove(key) }
-                        else          { viewModel.revealedSerials.insert(key) }
+                        if viewModel.revealedSerials.contains(key) { viewModel.revealedSerials.remove(key) }
+                        else { viewModel.revealedSerials.insert(key) }
                     } label: {
-                        Label(isRevealed ? "Hide Details" : "Reveal Details",
-                              systemImage: isRevealed ? "eye.slash" : "eye")
+                        Label(isMasked ? "Reveal Details" : "Hide Details",
+                              systemImage: isMasked ? "eye" : "eye.slash")
                     }
                     SwiftUI.Button { UIPasteboard.general.string = activeSerial } label: {
                         Label("Copy S/N", systemImage: "doc.on.doc")

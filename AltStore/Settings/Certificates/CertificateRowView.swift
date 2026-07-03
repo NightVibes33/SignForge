@@ -73,9 +73,10 @@ struct CertificateRowView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .contextMenu {
+            let isMasked = viewModel.isSerialMasked(for: cert, hasPrivateKey: hasPrivateKey)
             SwiftUI.Button { toggleReveal() } label: {
-                Label(viewModel.revealedSerials.contains(cert.serialNumber) ? "Hide Details" : "Reveal Details",
-                      systemImage: viewModel.revealedSerials.contains(cert.serialNumber) ? "eye.slash" : "eye")
+                Label(isMasked ? "Reveal Details" : "Hide Details",
+                      systemImage: isMasked ? "eye" : "eye.slash")
             }
             if hasPrivateKey && !isActive {
                 SwiftUI.Button { viewModel.makeCertificateActive(cert) } label: {
@@ -197,8 +198,8 @@ private struct CertPublicKeyMenuItems: View {
     
     var body: some View {
         Group {
-            SwiftUI.Button { onAddKeyText() } label: { Label("Add pKey (text)", systemImage: "square.and.pencil") }
-            SwiftUI.Button { onAddKeyBin() } label: { Label("Add pKey (bin)", systemImage: "doc.badge.plus") }
+            SwiftUI.Button { onAddKeyText() } label: { Label("Add pKey (.pem)", systemImage: "square.and.pencil") }
+            SwiftUI.Button { onAddKeyBin() } label: { Label("Add pKey (.der)", systemImage: "doc.badge.plus") }
             
             Divider()
             

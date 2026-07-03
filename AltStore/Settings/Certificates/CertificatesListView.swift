@@ -94,9 +94,9 @@ private struct CertGroupHeaderView: View {
                 Image(systemName: "rectangle.3.group").font(.system(size: 13)).foregroundColor(.accentColor)
             }
             SwiftUI.Button {
-                viewModel.isPrivateSectionHideActive.toggle()
+                viewModel.isSectionHideActive.toggle()
             } label: {
-                Image(systemName: viewModel.isPrivateSectionHideActive ? "eye.slash" : "eye")
+                Image(systemName: viewModel.isSectionHideActive ? "eye.slash" : "eye")
                     .font(.subheadline)
                     .foregroundColor(viewModel.isGlobalHideActive ? .gray : .accentColor)
             }
