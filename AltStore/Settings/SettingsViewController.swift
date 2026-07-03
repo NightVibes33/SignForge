@@ -214,10 +214,8 @@ final class SettingsViewController: UITableViewController
         // --- iOS 26 fix ---
         if #available(iOS 26.0, *) {
             let appearance = UINavigationBarAppearance()
-//            appearance.configureWithOpaqueBackground()  // or .defaultBackground if you want blur
-//            appearance.backgroundColor = UIColor(named: "SettingsBackground")
-            appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
-            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
             navigationController?.navigationBar.standardAppearance = appearance
             navigationController?.navigationBar.scrollEdgeAppearance = appearance       // required for iOS 26, maybe enforce it in storyboard?
         } 
@@ -394,6 +392,15 @@ final class SettingsViewController: UITableViewController
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if segue.identifier == "anisetteServers" || segue.identifier == "certificateManagement" {
             let controller = segue.destination
+            
+            if segue.identifier == "certificateManagement" {
+                let appearance = UINavigationBarAppearance()
+                appearance.configureWithDefaultBackground()
+                appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+                appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+                controller.navigationItem.standardAppearance = appearance
+                controller.navigationItem.scrollEdgeAppearance = appearance
+            }
             
             // disable bottom tab bar since 'back' button is already available
 //            controller.hidesBottomBarWhenPushed = true
