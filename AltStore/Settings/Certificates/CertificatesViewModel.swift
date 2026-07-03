@@ -72,6 +72,11 @@ class CertificatesViewModel: ObservableObject {
         failedImportsList.joined(separator: "\n")
     }
     
+    var currentImportFilename: String {
+        guard currentImportIndex < pendingImports.count else { return "" }
+        return pendingImports[currentImportIndex].filename
+    }
+    
     var lastUsedPassword = ""
     var importedSerialsThisBatch = [String: (hasPrivateKey: Bool, filename: String)]()
     var session: ALTAppleAPISession?

@@ -160,7 +160,7 @@ struct CertificatesView: View {
             SwiftUI.Button("Import") { viewModel.submitImportPassword() }
             SwiftUI.Button("Cancel", role: .cancel) { viewModel.cancelImport() }
         } message: {
-            Text("Enter the password to decrypt the imported .p12 certificate file.")
+            Text("Enter the password to decrypt the imported certificate file.\n\nFile: \(viewModel.currentImportFilename)")
         }
         .alert("Success", isPresented: $viewModel.showAlert) {
             SwiftUI.Button("OK", role: .cancel) { viewModel.alertMessage = nil }
