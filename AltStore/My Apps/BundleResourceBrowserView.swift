@@ -78,9 +78,9 @@ struct BundleResourceBrowserView: View {
                     }
                 }
             }
-            // Leading Share — must wrap the ENTIRE ToolbarItem in the conditional
-            if isSelecting && !selectedURLs.isEmpty {
-                ToolbarItem(placement: .navigationBarLeading) {
+            // Leading Share
+            ToolbarItem(placement: .navigationBarLeading) {
+                if isSelecting && !selectedURLs.isEmpty {
                     SwiftUI.Button {
                         showingShareSheet = true
                     } label: {
