@@ -77,8 +77,8 @@ struct ActiveCertSectionView: View {
                 }
             } else {
                 Text(viewModel.team == nil
-                     ? "No active local certificate found. Import a .p12 file to sign your apps."
-                     : "No active local certificate found. Create a new certificate or import a .p12 file to sign your apps.")
+                     ? "No active local certificate found.Import a .p12 file to sign your apps."
+                     : "No active local certificate found.Create a new certificate or import a .p12 file to sign your apps.")
                     .foregroundColor(.secondary)
                     .font(.subheadline)
             }

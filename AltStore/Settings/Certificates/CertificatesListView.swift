@@ -22,13 +22,11 @@ struct CertificatesListView: View {
     
     var body: some View {
         if viewModel.certificates.isEmpty {
-            Section(header: Text("Certificates")) {
+            Section(header: Text("All Certificates")) {
                 if viewModel.isLoading {
                     Text("Fetching certificates...").foregroundColor(.secondary)
-                } else if viewModel.team == nil {
-                    Text("No local certificates found (not signed in).").foregroundColor(.secondary)
                 } else {
-                    Text("No certificates found.").foregroundColor(.secondary)
+                    Text("No local certificates found.").foregroundColor(.secondary)
                 }
             }
         } else {
