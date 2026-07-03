@@ -73,7 +73,7 @@ class CertificatesViewModel: ObservableObject {
     }
     
     var lastUsedPassword = ""
-    var importedSerialsThisBatch = [String: Bool]()
+    var importedSerialsThisBatch = [String: (hasPrivateKey: Bool, filename: String)]()
     var session: ALTAppleAPISession?
     var team: ALTTeam?
     
@@ -292,8 +292,7 @@ class CertificatesViewModel: ObservableObject {
                 importFailedCount += 1
             } else {
                 saveLocalCertificate(rawCert)
-                importedSerialsThisBatch[rawCert.serialNumber] = (rawCert.privateKey != nil)
-                importSuccessCount += 1
+                recordSuccessfulImport(serial: rawCert.serialNumber, hasPrivateKey: rawCert.privateKey != nil, filename: pending.filename)
             }
             currentImportIndex += 1
             processNextImport()
@@ -309,8 +308,7 @@ class CertificatesViewModel: ObservableObject {
                         importFailedCount += 1
                     } else {
                         saveLocalCertificate(altCert)
-                        importedSerialsThisBatch[altCert.serialNumber] = (altCert.privateKey != nil)
-                        importSuccessCount += 1
+                        recordSuccessfulImport(serial: altCert.serialNumber, hasPrivateKey: altCert.privateKey != nil, filename: pending.filename)
                     }
                     currentImportIndex += 1
                     processNextImport()
@@ -332,8 +330,7 @@ class CertificatesViewModel: ObservableObject {
                     importFailedCount += 1
                 } else {
                     saveLocalCertificate(altCert)
-                    importedSerialsThisBatch[altCert.serialNumber] = (altCert.privateKey != nil)
-                    importSuccessCount += 1
+                    recordSuccessfulImport(serial: altCert.serialNumber, hasPrivateKey: altCert.privateKey != nil, filename: pending.filename)
                 }
                 currentImportIndex += 1
                 processNextImport()
@@ -381,8 +378,7 @@ class CertificatesViewModel: ObservableObject {
                 importFailedCount += 1
             } else {
                 saveLocalCertificate(altCert)
-                importedSerialsThisBatch[altCert.serialNumber] = (altCert.privateKey != nil)
-                importSuccessCount += 1
+                recordSuccessfulImport(serial: altCert.serialNumber, hasPrivateKey: altCert.privateKey != nil, filename: pending.filename)
             }
             self.lastUsedPassword = importPasswordInput
             self.showPasswordPromptForImport = false
@@ -658,9 +654,19 @@ class CertificatesViewModel: ObservableObject {
         self.showAlert    = true
     }
     
-    private func isDuplicate(cert: ALTCertificate, importedSerials: [String: Bool]) -> Bool {
-        if let importedHasKey = importedSerials[cert.serialNumber] {
-            if cert.privateKey == nil || importedHasKey {
+    private func recordSuccessfulImport(serial: String, hasPrivateKey: Bool, filename: String) {
+        if let previous = importedSerialsThisBatch[serial] {
+            importSuccessCount -= 1
+            importFailedCount += 1
+            failedImportsList.append("\(previous.filename): Duplicate certificate (already imported).")
+        }
+        importedSerialsThisBatch[serial] = (hasPrivateKey, filename)
+        importSuccessCount += 1
+    }
+    
+    private func isDuplicate(cert: ALTCertificate, importedSerials: [String: (hasPrivateKey: Bool, filename: String)]) -> Bool {
+        if let imported = importedSerials[cert.serialNumber] {
+            if cert.privateKey == nil || imported.hasPrivateKey {
                 return true
             }
         }
