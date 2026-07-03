@@ -239,16 +239,13 @@ struct CertificateDetailView: View {
                             .buttonStyle(.plain)
                         }
                         
-                        ScrollView(.vertical, showsIndicators: true) {
+                        ScrollView(.horizontal, showsIndicators: true) {
                             Text(String(data: certData, encoding: .utf8) ?? certData.base64EncodedString())
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .lineLimit(nil)
-                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: true, vertical: false)
                         }
-                        .frame(maxHeight: 150)
                     }
                     .padding(.vertical, 4)
                 }
