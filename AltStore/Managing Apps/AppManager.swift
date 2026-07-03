@@ -1185,7 +1185,14 @@ private extension AppManager
             self.set(progress, for: operation)
         }
         
-        try await self.evaluateMuxerServicesRestart(presentingViewController: presentingViewController)
+        do {
+            try await self.evaluateMuxerServicesRestart(presentingViewController: presentingViewController)
+        } catch {
+            for operation in operations {
+                self.set(nil, for: operation)
+            }
+            throw error
+        }
         
         if let viewController = presentingViewController
         {
