@@ -76,3 +76,4 @@ release-notes.md
 *.txt
 
 Dependencies/minimuxer-*/
+.test/

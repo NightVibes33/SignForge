@@ -18,6 +18,11 @@ struct CertificatesView: View {
         return extensions.compactMap { UTType(filenameExtension: $0) }
     }
     
+    private var allowedKeyImportTypes: [UTType] {
+        let extensions = ["key", "pem", "der"]
+        return extensions.compactMap { UTType(filenameExtension: $0) }
+    }
+    
     @StateObject private var viewModel = CertificatesViewModel()
     
     @State private var showCreateDialog = false
@@ -36,21 +41,118 @@ struct CertificatesView: View {
     @State private var certificateToRevoke: ALTCertificate? = nil
     @State private var certificateToDelete: ALTCertificate? = nil
     
-    private var privateCerts: [ALTCertificate] {
-        viewModel.certificates
-            .filter { $0.privateKey != nil }
-            .sorted(by: { $0.creationDate > $1.creationDate })
+    enum SortOption: String, CaseIterable, Identifiable {
+        case creationDate = "Creation Date"
+        case expiryDate = "Expiry Date"
+        case name = "Name"
+        case keys = "Keys"
+        
+        var id: String { self.rawValue }
     }
     
-    private var publicCerts: [ALTCertificate] {
-        viewModel.certificates
-            .filter { $0.privateKey == nil }
-            .sorted(by: { $0.creationDate > $1.creationDate })
+    enum GroupOption: String, CaseIterable, Identifiable {
+        case none = "None"
+        case creationDate = "Creation Date"
+        case expiryDate = "Expiry Date"
+        case name = "Name"
+        case keys = "Keys"
+        
+        var id: String { self.rawValue }
+    }
+    
+    @State private var currentSort: SortOption = .creationDate
+    @State private var isAscending: Bool = false
+    @State private var currentGroup: GroupOption = .none
+    @State private var showKeyImporter = false
+    @State private var keyTextImportItem: KeyTextImportItem? = nil
+    @State private var privateKeyTextInput = ""
+    @State private var certificateToAddKeyFor: ALTCertificate? = nil
+    @State private var showClearKeyConfirmation = false
+    @State private var certificateToClearKeyFor: ALTCertificate? = nil
+    
+    struct KeyTextImportItem: Identifiable {
+        let id: String
+        let cert: ALTCertificate
+    }
+    
+    struct GroupedCertificates: Identifiable {
+        var id: String { name }
+        let name: String
+        let certificates: [ALTCertificate]
+    }
+    
+    private func sortCertificates(_ certs: [ALTCertificate]) -> [ALTCertificate] {
+        switch currentSort {
+        case .creationDate:
+            return certs.sorted(by: { isAscending ? $0.creationDate < $1.creationDate : $0.creationDate > $1.creationDate })
+        case .expiryDate:
+            return certs.sorted(by: { isAscending ? $0.expiryDate < $1.expiryDate : $0.expiryDate > $1.expiryDate })
+        case .name:
+            return certs.sorted(by: {
+                let comparison = ($0.machineName ?? $0.name).localizedCaseInsensitiveCompare($1.machineName ?? $1.name)
+                return isAscending ? comparison == .orderedAscending : comparison == .orderedDescending
+            })
+        case .keys:
+            return certs.sorted(by: {
+                let val1 = $0.privateKey != nil ? 1 : 0
+                let val2 = $1.privateKey != nil ? 1 : 0
+                return isAscending ? val1 < val2 : val1 > val2
+            })
+        }
+    }
+    
+    private var groupedCertificatesList: [GroupedCertificates] {
+        let sorted = sortCertificates(viewModel.certificates)
+        switch currentGroup {
+        case .none:
+            return [GroupedCertificates(name: "Certificates", certificates: sorted)]
+        case .keys:
+            let withKeys = sorted.filter { $0.privateKey != nil }
+            let withoutKeys = sorted.filter { $0.privateKey == nil }
+            var groups: [GroupedCertificates] = []
+            if !withKeys.isEmpty {
+                groups.append(GroupedCertificates(name: "Public + Private Keys", certificates: withKeys))
+            }
+            if !withoutKeys.isEmpty {
+                groups.append(GroupedCertificates(name: "Public Keys Only", certificates: withoutKeys))
+            }
+            return groups
+        case .name:
+            let grouped = Dictionary(grouping: sorted) { cert -> String in
+                let certName = cert.machineName ?? cert.name
+                guard let firstChar = certName.first else { return "#" }
+                return String(firstChar).uppercased()
+            }
+            return grouped.keys.sorted().map { key in
+                GroupedCertificates(name: key, certificates: grouped[key] ?? [])
+            }
+        case .creationDate:
+            let grouped = Dictionary(grouping: sorted) { cert -> String in
+                let year = Calendar.current.component(.year, from: cert.creationDate)
+                return year > 1970 ? "Created in \(year)" : "Created (Unknown Date)"
+            }
+            return grouped.keys.sorted(by: >).map { key in
+                GroupedCertificates(name: key, certificates: grouped[key] ?? [])
+            }
+        case .expiryDate:
+            let grouped = Dictionary(grouping: sorted) { cert -> String in
+                let year = Calendar.current.component(.year, from: cert.expiryDate)
+                return year > 1970 ? "Expires in \(year)" : "Expires (Unknown Date)"
+            }
+            return grouped.keys.sorted(by: <).map { key in
+                GroupedCertificates(name: key, certificates: grouped[key] ?? [])
+            }
+        }
     }
     private func displayActiveSerial(activeSerial: String) -> String {
-        let isSerialRevealed = viewModel.revealedSerials.contains(activeSerial)
-        if viewModel.isGlobalHideActive && !isSerialRevealed {
+        let isSerialRevealed = viewModel.revealedSerials.contains("active_" + activeSerial)
+        let isSectionHidden = viewModel.isPrivateSectionHideActive
+        let isGlobalHidden = viewModel.isGlobalHideActive
+        
+        if isGlobalHidden && !isSerialRevealed {
             return "••••••••••••••••"
+        } else if isSectionHidden && !isSerialRevealed {
+            return maskPartially(activeSerial)
         } else {
             return activeSerial
         }
@@ -97,12 +199,10 @@ struct CertificatesView: View {
                         )
                         .foregroundColor(.secondary)
                             .onTapGesture {
-                                if viewModel.isGlobalHideActive {
-                                    if viewModel.revealedSerials.contains(activeSerial) {
-                                        viewModel.revealedSerials.remove(activeSerial)
-                                    } else {
-                                        viewModel.revealedSerials.insert(activeSerial)
-                                    }
+                                if viewModel.revealedSerials.contains("active_" + activeSerial) {
+                                    viewModel.revealedSerials.remove("active_" + activeSerial)
+                                } else {
+                                    viewModel.revealedSerials.insert("active_" + activeSerial)
                                 }
                             }
                     }
@@ -110,16 +210,14 @@ struct CertificatesView: View {
                 .padding(.vertical, 4)
                 .contentShape(Rectangle())
                 .contextMenu {
-                    if viewModel.isGlobalHideActive {
-                        SwiftUI.Button {
-                            if viewModel.revealedSerials.contains(activeSerial) {
-                                viewModel.revealedSerials.remove(activeSerial)
-                            } else {
-                                viewModel.revealedSerials.insert(activeSerial)
-                            }
-                        } label: {
-                            Label(viewModel.revealedSerials.contains(activeSerial) ? "Hide Details" : "Reveal Details", systemImage: viewModel.revealedSerials.contains(activeSerial) ? "eye.slash" : "eye")
+                    SwiftUI.Button {
+                        if viewModel.revealedSerials.contains("active_" + activeSerial) {
+                            viewModel.revealedSerials.remove("active_" + activeSerial)
+                        } else {
+                            viewModel.revealedSerials.insert("active_" + activeSerial)
                         }
+                    } label: {
+                        Label(viewModel.revealedSerials.contains("active_" + activeSerial) ? "Hide Details" : "Reveal Details", systemImage: viewModel.revealedSerials.contains("active_" + activeSerial) ? "eye.slash" : "eye")
                     }
                     SwiftUI.Button {
                         UIPasteboard.general.string = activeSerial
@@ -172,20 +270,55 @@ struct CertificatesView: View {
                 }
             }
         } else {
-            if !privateCerts.isEmpty {
+            ForEach(groupedCertificatesList) { group in
                 Section {
-                    ForEach(privateCerts, id: \.serialNumber) { cert in
-                        SwiftUI.Button {
-                            pushDetailView(for: cert)
-                        } label: {
-                            certificateRow(cert: cert, hasPrivateKey: true)
-                        }
-                        .buttonStyle(.plain)
+                    ForEach(group.certificates, id: \.serialNumber) { cert in
+                        certificateRow(cert: cert, hasPrivateKey: cert.privateKey != nil)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                pushDetailView(for: cert)
+                            }
                     }
                 } header: {
-                    HStack {
-                        Text("Private Certificates")
+                    HStack(spacing: 12) {
+                        Text(group.name)
                         Spacer()
+                        
+                        Menu {
+                            ForEach(SortOption.allCases) { option in
+                                SwiftUI.Button {
+                                    if currentSort == option {
+                                        isAscending.toggle()
+                                    } else {
+                                        currentSort = option
+                                        isAscending = (option == .name)
+                                    }
+                                } label: {
+                                    if currentSort == option {
+                                        Label("\(option.rawValue) \(isAscending ? "↑" : "↓")", systemImage: "checkmark")
+                                    } else {
+                                        Text(option.rawValue)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .font(.system(size: 13))
+                                .foregroundColor(.accentColor)
+                        }
+                        
+                        Menu {
+                            Picker("Group By", selection: $currentGroup) {
+                                ForEach(GroupOption.allCases) { option in
+                                    Text(option.rawValue).tag(option)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "rectangle.3.group")
+                                .font(.system(size: 13))
+                                .foregroundColor(.accentColor)
+                        }
+                        
                         SwiftUI.Button {
                             viewModel.isPrivateSectionHideActive.toggle()
                         } label: {
@@ -197,38 +330,9 @@ struct CertificatesView: View {
                         .disabled(viewModel.isGlobalHideActive)
                     }
                 } footer: {
-                    if publicCerts.isEmpty {
+                    if group.id == groupedCertificatesList.last?.id {
                         Text("Suffix (R) indicates the certificate is registered remotely on Apple's developer portal.")
                     }
-                }
-            }
-            
-            if !publicCerts.isEmpty {
-                Section {
-                    ForEach(publicCerts, id: \.serialNumber) { cert in
-                        SwiftUI.Button {
-                            pushDetailView(for: cert)
-                        } label: {
-                            certificateRow(cert: cert, hasPrivateKey: false)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                } header: {
-                    HStack {
-                        Text("Public Certificates")
-                        Spacer()
-                        SwiftUI.Button {
-                            viewModel.isPublicSectionHideActive.toggle()
-                        } label: {
-                            Image(systemName: viewModel.isPublicSectionHideActive ? "eye.slash" : "eye")
-                                .font(.subheadline)
-                                .foregroundColor(viewModel.isGlobalHideActive ? .gray : .accentColor)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(viewModel.isGlobalHideActive)
-                    }
-                } footer: {
-                    Text("Suffix (R) indicates the certificate is registered remotely on Apple's developer portal.")
                 }
             }
         }
@@ -375,6 +479,54 @@ struct CertificatesView: View {
                 viewModel.startBulkImport(urls: urls)
             case .failure(let error):
                 viewModel.errorMessage = "Failed to select files: " + error.localizedDescription
+            }
+        }
+        .fileImporter(
+            isPresented: $showKeyImporter,
+            allowedContentTypes: allowedKeyImportTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first, let cert = certificateToAddKeyFor {
+                    _ = url.startAccessingSecurityScopedResource()
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    do {
+                        let data = try Data(contentsOf: url)
+                        viewModel.importPrivateKey(data: data, for: cert)
+                    } catch {
+                        viewModel.errorMessage = "Failed to read private key: " + error.localizedDescription
+                    }
+                }
+            case .failure(let error):
+                viewModel.errorMessage = "Failed to select private key: " + error.localizedDescription
+            }
+        }
+        .sheet(item: $keyTextImportItem) { item in
+            PrivateKeyTextInputView(
+                text: $privateKeyTextInput,
+                cert: item.cert,
+                viewModel: viewModel,
+                allowedKeyImportTypes: allowedKeyImportTypes,
+                onCancel: {
+                    keyTextImportItem = nil
+                    privateKeyTextInput = ""
+                }
+            )
+        }
+        .alert("Clear Private Key", isPresented: $showClearKeyConfirmation) {
+            if let cert = certificateToClearKeyFor {
+                SwiftUI.Button("Clear Key", role: .destructive) {
+                    viewModel.clearPrivateKey(for: cert)
+                    self.certificateToClearKeyFor = nil
+                }
+            }
+            SwiftUI.Button("Cancel", role: .cancel) {
+                self.certificateToClearKeyFor = nil
+            }
+        } message: {
+            if let cert = certificateToClearKeyFor {
+                Text("This will clear the locally stored private key of this certificate.\n\nName: \(cert.name)\nS/N: \(cert.serialNumber)")
             }
         }
     }
@@ -563,6 +715,13 @@ struct CertificatesView: View {
                         .font(.system(size: 11, design: .monospaced))
                 )
                 .foregroundColor(.secondary)
+                .onTapGesture {
+                    if viewModel.revealedSerials.contains(cert.serialNumber) {
+                        viewModel.revealedSerials.remove(cert.serialNumber)
+                    } else {
+                        viewModel.revealedSerials.insert(cert.serialNumber)
+                    }
+                }
                 if let displayIdent = displayIdentifier(for: cert, hasPrivateKey: hasPrivateKey) {
                     (
                         Text("ID: ")
@@ -607,6 +766,14 @@ struct CertificatesView: View {
                     )
                     .foregroundColor(.secondary)
                 }
+                (
+                    Text("Keys: ")
+                        .font(.system(size: 10))
+                    +
+                    Text(hasPrivateKey ? "public + private" : "public")
+                        .font(.system(size: 10))
+                )
+                .foregroundColor(.secondary)
             }
             
             Spacer()
@@ -636,16 +803,14 @@ struct CertificatesView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .contextMenu {
-            if isGlobalHidden || isSectionHidden {
-                SwiftUI.Button {
-                    if viewModel.revealedSerials.contains(cert.serialNumber) {
-                        viewModel.revealedSerials.remove(cert.serialNumber)
-                    } else {
-                        viewModel.revealedSerials.insert(cert.serialNumber)
-                    }
-                } label: {
-                    Label(viewModel.revealedSerials.contains(cert.serialNumber) ? "Hide Details" : "Reveal Details", systemImage: viewModel.revealedSerials.contains(cert.serialNumber) ? "eye.slash" : "eye")
+            SwiftUI.Button {
+                if viewModel.revealedSerials.contains(cert.serialNumber) {
+                    viewModel.revealedSerials.remove(cert.serialNumber)
+                } else {
+                    viewModel.revealedSerials.insert(cert.serialNumber)
                 }
+            } label: {
+                Label(viewModel.revealedSerials.contains(cert.serialNumber) ? "Hide Details" : "Reveal Details", systemImage: viewModel.revealedSerials.contains(cert.serialNumber) ? "eye.slash" : "eye")
             }
             if hasPrivateKey && !isActive {
                 SwiftUI.Button {
@@ -669,7 +834,39 @@ struct CertificatesView: View {
                 } label: {
                     Label("Export (.p12)", systemImage: "square.and.arrow.up")
                 }
+                
+                SwiftUI.Button {
+                    if let keyData = cert.privateKey, let pemString = String(data: keyData, encoding: .utf8) {
+                        UIPasteboard.general.string = pemString
+                    } else if let keyData = cert.privateKey {
+                        UIPasteboard.general.string = keyData.base64EncodedString()
+                    }
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                } label: {
+                    Label("Copy Private Key", systemImage: "doc.on.doc")
+                }
+                
+                SwiftUI.Button(role: .destructive) {
+                    self.certificateToClearKeyFor = cert
+                    self.showClearKeyConfirmation = true
+                } label: {
+                    Label("Clear pKey", systemImage: "key.slash")
+                }
             } else {
+                SwiftUI.Button {
+                    self.keyTextImportItem = KeyTextImportItem(id: cert.serialNumber, cert: cert)
+                } label: {
+                    Label("Add pKey (text)", systemImage: "square.and.pencil")
+                }
+                
+                SwiftUI.Button {
+                    self.certificateToAddKeyFor = cert
+                    self.showKeyImporter = true
+                } label: {
+                    Label("Add pKey (bin)", systemImage: "doc.badge.plus")
+                }
+                
                 SwiftUI.Button {
                     exportPublicCertificateAsDER(cert)
                 } label: {
@@ -716,5 +913,11 @@ struct CertificatesView: View {
         detailVC.navigationItem.standardAppearance = appearance
         
         presentingViewController?.navigationController?.pushViewController(detailVC, animated: true)
+    }
+}
+
+extension ALTCertificate: Identifiable {
+    public var id: String {
+        return self.serialNumber
     }
 }

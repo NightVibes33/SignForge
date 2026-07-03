@@ -97,7 +97,7 @@ class CertificatesViewModel: ObservableObject {
         for serial in serials {
             if let data = try? self.certificateKeychain.getData("importedCert_" + serial) {
                 var loadedCert: ALTCertificate? = nil
-                if let cert = try? ALTCertificate(p12Data: data, password: "") {
+                if let cert = (try? ALTCertificate(p12Data: data, password: "")) ?? (try? ALTCertificate(p12Data: data, password: nil)) {
                     loadedCert = cert
                 } else if let cert = ALTCertificate(data: data) {
                     loadedCert = cert
@@ -454,5 +454,104 @@ class CertificatesViewModel: ObservableObject {
     func isCertificateLocallyCached(_ certificate: ALTCertificate) -> Bool {
         let serials = UserDefaults.standard.stringArray(forKey: "importedCertificateSerials") ?? []
         return serials.contains(certificate.serialNumber) || certificate.serialNumber == self.activeSerialNumber
+    }
+}
+
+enum PrivateKeyImportError: LocalizedError {
+    case isCertificate
+    case invalidKey
+    case conversionFailed
+    
+    var errorDescription: String? {
+        switch self {
+        case .isCertificate:
+            return "The selected file is a certificate, not a private key."
+        case .invalidKey:
+            return "The input does not contain a valid private key."
+        case .conversionFailed:
+            return "Failed to convert binary private key to PEM format."
+        }
+    }
+}
+
+extension CertificatesViewModel {
+    private func derToPEM(derData: Data) -> Data? {
+        let base64 = derData.base64EncodedString(options: [.lineLength64Characters])
+        let pemString = "-----BEGIN PRIVATE KEY-----\n\(base64)\n-----END PRIVATE KEY-----"
+        return pemString.data(using: .utf8)
+    }
+    
+    func validateAndFormatPrivateKey(data: Data) throws -> Data {
+        // 1. Check if the input data is a certificate
+        if let _ = SecCertificateCreateWithData(nil, data as CFData) {
+            throw PrivateKeyImportError.isCertificate
+        }
+        
+        // 2. Try to validate as an RSA/EC private key using SecKeyCreateWithData
+        let rsaAttributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate
+        ]
+        var error: Unmanaged<CFError>?
+        if let _ = SecKeyCreateWithData(data as CFData, rsaAttributes as CFDictionary, &error) {
+            guard let pemData = derToPEM(derData: data) else {
+                throw PrivateKeyImportError.conversionFailed
+            }
+            return pemData
+        }
+        
+        let ecAttributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeEC,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate
+        ]
+        if let _ = SecKeyCreateWithData(data as CFData, ecAttributes as CFDictionary, nil) {
+            guard let pemData = derToPEM(derData: data) else {
+                throw PrivateKeyImportError.conversionFailed
+            }
+            return pemData
+        }
+        
+        // 3. Check if it's already a valid PEM string
+        if let pemString = String(data: data, encoding: .utf8) {
+            let clean = pemString.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hasBegin = clean.contains("-----BEGIN PRIVATE KEY-----")        ||
+                           clean.contains("-----BEGIN RSA PRIVATE KEY-----")    ||
+                           clean.contains("-----BEGIN EC PRIVATE KEY-----")     ||
+                           clean.contains("-----BEGIN DSA PRIVATE KEY-----")
+            
+            let hasEnd = clean.contains("-----END PRIVATE KEY-----")            ||
+                         clean.contains("-----END RSA PRIVATE KEY-----")        ||
+                         clean.contains("-----END EC PRIVATE KEY-----")         ||
+                         clean.contains("-----END DSA PRIVATE KEY-----")
+            
+            if hasBegin && hasEnd {
+                return data
+            }
+        }
+        
+        throw PrivateKeyImportError.invalidKey
+    }
+    
+    func importPrivateKey(data: Data, for cert: ALTCertificate) {
+        do {
+            let formattedKey = try validateAndFormatPrivateKey(data: data)
+            cert.privateKey = formattedKey
+            saveLocalCertificate(cert)
+            self.loadCertificates(presentingViewController: nil)
+            
+            self.alertMessage = "Successfully added private key to certificate \(cert.name)."
+            self.showAlert = true
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
+    }
+    
+    func clearPrivateKey(for cert: ALTCertificate) {
+        cert.privateKey = nil
+        saveLocalCertificate(cert)
+        self.loadCertificates(presentingViewController: nil)
+        
+        self.alertMessage = "Successfully removed private key from certificate \(cert.name)."
+        self.showAlert = true
     }
 }

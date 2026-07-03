@@ -321,28 +321,14 @@ func parseCertificate(derData: Data) -> ParsedCertificateDetails {
 
 extension ALTCertificate {
     var creationDate: Date {
-        guard let data = self.data,
-              let cleanDer = getDERData(from: data) else {
-            return Date.distantPast
-        }
-        var offset = 0
-        guard let outerSeq = parseASN1TLV(cleanDer, offset: &offset), outerSeq.tag == 0x30 else { return Date.distantPast }
-        var tbsOffset = 0
-        guard let tbsSeq = parseASN1TLV(outerSeq.data, offset: &tbsOffset), tbsSeq.tag == 0x30 else { return Date.distantPast }
-        
-        var innerOffset = 0
-        if innerOffset < tbsSeq.data.count && tbsSeq.data[innerOffset] == 0xA0 {
-            _ = parseASN1TLV(tbsSeq.data, offset: &innerOffset)
-        }
-        
-        guard let _ = parseASN1TLV(tbsSeq.data, offset: &innerOffset) else { return Date.distantPast }
-        guard let _ = parseASN1TLV(tbsSeq.data, offset: &innerOffset) else { return Date.distantPast }
-        guard let _ = parseASN1TLV(tbsSeq.data, offset: &innerOffset) else { return Date.distantPast }
-        
-        guard let validityItem = parseASN1TLV(tbsSeq.data, offset: &innerOffset) else { return Date.distantPast }
-        var valOffset = 0
-        guard let notBeforeItem = parseASN1TLV(validityItem.data, offset: &valOffset) else { return Date.distantPast }
-        
-        return parseDate(from: notBeforeItem) ?? Date.distantPast
+        guard let data = self.data else { return Date.distantPast }
+        let details = parseCertificate(derData: data)
+        return details.validFrom ?? Date.distantPast
+    }
+    
+    var expiryDate: Date {
+        guard let data = self.data else { return Date.distantPast }
+        let details = parseCertificate(derData: data)
+        return details.validUntil ?? Date.distantPast
     }
 }
