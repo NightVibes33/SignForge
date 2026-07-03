@@ -167,6 +167,45 @@ struct CertificatesView: View {
         } message: {
             Text(viewModel.alertMessage ?? "")
         }
+        .alert("Import Summary", isPresented: $viewModel.showImportSummary) {
+            if viewModel.importFailedCount > 0 {
+                SwiftUI.Button("Show Failed") {
+                    DispatchQueue.main.async {
+                        viewModel.showFailuresAlert = true
+                    }
+                }
+                SwiftUI.Button("OK", role: .cancel) {}
+            } else {
+                SwiftUI.Button("OK", role: .cancel) {}
+            }
+        } message: {
+            Text(viewModel.importSummaryMessage)
+        }
+        .sheet(isPresented: $viewModel.showFailuresAlert) {
+            NavigationView {
+                List {
+                    ForEach(Array(viewModel.failedImportsList.enumerated()), id: \.offset) { index, failure in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("\(index + 1).")
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            Text(failure)
+                                .font(.system(size: 13))
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .navigationTitle("Import Failures")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        SwiftUI.Button("OK") {
+                            viewModel.showFailuresAlert = false
+                        }
+                    }
+                }
+            }
+        }
         .alert("Export Certificate Password", isPresented: $showExportPasswordPrompt) {
             SecureField("Password", text: $exportPasswordInput)
             SwiftUI.Button("Export") {

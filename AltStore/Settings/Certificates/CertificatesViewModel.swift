@@ -63,8 +63,20 @@ class CertificatesViewModel: ObservableObject {
     @Published var importPasswordInput = ""
     @Published var importSuccessCount = 0
     @Published var importFailedCount = 0
+    @Published var showImportSummary = false
+    @Published var showFailuresAlert = false
+    @Published var failedImportsList: [String] = []
+    
+    var importSummaryMessage: String {
+        "Certificate import completed.\nSuccess: \(importSuccessCount)\nFailed: \(importFailedCount)"
+    }
+    
+    var failuresAlertMessage: String {
+        failedImportsList.joined(separator: "\n")
+    }
     
     var lastUsedPassword = ""
+    var importedSerialsThisBatch = Set<String>()
     var session: ALTAppleAPISession?
     var team: ALTTeam?
     
@@ -104,36 +116,69 @@ class CertificatesViewModel: ObservableObject {
     func loadLocalCertificates() -> [ALTCertificate] {
         var localCerts: [ALTCertificate] = []
         let serials = UserDefaults.standard.stringArray(forKey: "importedCertificateSerials") ?? []
+        print("[SideStore] loadLocalCertificates, serials: \(serials)")
         for serial in serials {
-            if let data = try? self.certificateKeychain.getData("importedCert_" + serial) {
-                var loadedCert: ALTCertificate?
-                if let cert = (try? ALTCertificate(p12Data: data, password: ""))
-                            ?? (try? ALTCertificate(p12Data: data, password: nil))
-                {
-                    loadedCert = cert
-                } else if let cert = ALTCertificate(data: data) {
-                    loadedCert = cert
-                }
-                if let cert = loadedCert {
-                    if let metadata = UserDefaults.standard.dictionary(forKey: "certMetadata_" + cert.serialNumber) as? [String: String] {
-                        cert.machineName        = metadata["machineName"]
-                        cert.identifier         = metadata["identifier"]
-                        cert.requesterEmail     = metadata["requesterEmail"]
-                        cert.machineIdentifier  = metadata["machineIdentifier"]
+            do {
+                if let data = try self.certificateKeychain.getData("importedCert_" + serial) {
+                    print("[SideStore]   Retrieved data size: \(data.count) for \(serial)")
+                    var loadedCert: ALTCertificate?
+                    do {
+                        loadedCert = try ALTCertificate(p12Data: data, password: "")
+                        print("[SideStore]   Parsed as p12 empty pass")
+                    } catch {
+                        print("[SideStore]   Failed p12 empty pass: \(error)")
+                        do {
+                            loadedCert = try ALTCertificate(p12Data: data, password: nil)
+                            print("[SideStore]   Parsed as p12 nil pass")
+                        } catch {
+                            print("[SideStore]   Failed p12 nil pass: \(error)")
+                            if let cert = ALTCertificate(data: data) {
+                                loadedCert = cert
+                                print("[SideStore]   Parsed as raw cert")
+                            } else {
+                                print("[SideStore]   Failed raw cert parsing")
+                            }
+                        }
                     }
-                    localCerts.append(cert)
+                    if let cert = loadedCert {
+                        if let metadata = UserDefaults.standard.dictionary(forKey: "certMetadata_" + cert.serialNumber) as? [String: String] {
+                            cert.machineName        = metadata["machineName"]
+                            cert.identifier         = metadata["identifier"]
+                            cert.requesterEmail     = metadata["requesterEmail"]
+                            cert.machineIdentifier  = metadata["machineIdentifier"]
+                        }
+                        localCerts.append(cert)
+                    }
+                } else {
+                    print("[SideStore]   No data found in keychain for importedCert_\(serial)")
                 }
+            } catch {
+                print("[SideStore]   Keychain error for importedCert_\(serial): \(error)")
             }
         }
         return localCerts
     }
     
     func saveLocalCertificate(_ cert: ALTCertificate) {
+        print("[SideStore] saveLocalCertificate serial: \(cert.serialNumber)")
         if let p12Data = cert.p12Data() {
-            try? self.certificateKeychain.set(p12Data, key: "importedCert_" + cert.serialNumber)
+            print("[SideStore]   p12Data generated, size: \(p12Data.count)")
+            do {
+                try self.certificateKeychain.set(p12Data, key: "importedCert_" + cert.serialNumber)
+                print("[SideStore]   Successfully saved p12 to keychain")
+            } catch {
+                print("[SideStore]   Failed to save p12 to keychain: \(error)")
+            }
         } else if let derData = cert.data {
-            try? self.certificateKeychain.set(derData, key: "importedCert_" + cert.serialNumber)
+            print("[SideStore]   derData exists, size: \(derData.count)")
+            do {
+                try self.certificateKeychain.set(derData, key: "importedCert_" + cert.serialNumber)
+                print("[SideStore]   Successfully saved derData to keychain")
+            } catch {
+                print("[SideStore]   Failed to save derData to keychain: \(error)")
+            }
         } else {
+            print("[SideStore]   No data available to save")
             return
         }
         var serials = UserDefaults.standard.stringArray(forKey: "importedCertificateSerials") ?? []
@@ -219,6 +264,8 @@ class CertificatesViewModel: ObservableObject {
         self.currentImportIndex = 0
         self.importSuccessCount = 0
         self.importFailedCount  = 0
+        self.failedImportsList  = []
+        self.importedSerialsThisBatch = []
         processNextImport()
     }
     
@@ -235,6 +282,7 @@ class CertificatesViewModel: ObservableObject {
         defer { pending.url.stopAccessingSecurityScopedResource() }
         
         guard let certData = try? Data(contentsOf: pending.url) else {
+            failedImportsList.append("\(pending.filename): Read error.")
             importFailedCount += 1
             currentImportIndex += 1
             processNextImport()
@@ -242,8 +290,14 @@ class CertificatesViewModel: ObservableObject {
         }
         
         if let rawCert = ALTCertificate(data: certData) {
-            saveLocalCertificate(rawCert)
-            importSuccessCount += 1
+            if isDuplicate(cert: rawCert, importedSerials: importedSerialsThisBatch) {
+                failedImportsList.append("\(pending.filename): Duplicate certificate (already imported).")
+                importFailedCount += 1
+            } else {
+                saveLocalCertificate(rawCert)
+                importedSerialsThisBatch.insert(rawCert.serialNumber)
+                importSuccessCount += 1
+            }
             currentImportIndex += 1
             processNextImport()
             return
@@ -253,13 +307,20 @@ class CertificatesViewModel: ObservableObject {
             if !lastUsedPassword.isEmpty {
                 do {
                     let altCert = try ALTCertificate(p12Data: certData, password: lastUsedPassword)
-                    saveLocalCertificate(altCert)
-                    importSuccessCount += 1
+                    if isDuplicate(cert: altCert, importedSerials: importedSerialsThisBatch) {
+                        failedImportsList.append("\(pending.filename): Duplicate certificate (already imported).")
+                        importFailedCount += 1
+                    } else {
+                        saveLocalCertificate(altCert)
+                        importedSerialsThisBatch.insert(altCert.serialNumber)
+                        importSuccessCount += 1
+                    }
                     currentImportIndex += 1
                     processNextImport()
                     return
                 } catch ALTCertificateError.decryptionFailed {
                 } catch {
+                    failedImportsList.append("\(pending.filename): \(error.localizedDescription)")
                     importFailedCount += 1
                     currentImportIndex += 1
                     processNextImport()
@@ -269,8 +330,14 @@ class CertificatesViewModel: ObservableObject {
             
             do {
                 let altCert = try ALTCertificate(p12Data: certData, password: "")
-                saveLocalCertificate(altCert)
-                importSuccessCount += 1
+                if isDuplicate(cert: altCert, importedSerials: importedSerialsThisBatch) {
+                    failedImportsList.append("\(pending.filename): Duplicate certificate (already imported).")
+                    importFailedCount += 1
+                } else {
+                    saveLocalCertificate(altCert)
+                    importedSerialsThisBatch.insert(altCert.serialNumber)
+                    importSuccessCount += 1
+                }
                 currentImportIndex += 1
                 processNextImport()
                 return
@@ -281,12 +348,14 @@ class CertificatesViewModel: ObservableObject {
                 }
                 return
             } catch {
+                failedImportsList.append("\(pending.filename): \(error.localizedDescription)")
                 importFailedCount += 1
                 currentImportIndex += 1
                 processNextImport()
                 return
             }
         } else {
+            failedImportsList.append("\(pending.filename): Not a valid certificate format.")
             importFailedCount += 1
             currentImportIndex += 1
             processNextImport()
@@ -301,6 +370,7 @@ class CertificatesViewModel: ObservableObject {
         
         guard let certData = try? Data(contentsOf: pending.url) else {
             self.showPasswordPromptForImport = false
+            failedImportsList.append("\(pending.filename): Read error.")
             importFailedCount += 1
             currentImportIndex += 1
             processNextImport()
@@ -309,16 +379,23 @@ class CertificatesViewModel: ObservableObject {
         
         do {
             let altCert = try ALTCertificate(p12Data: certData, password: importPasswordInput)
-            saveLocalCertificate(altCert)
+            if isDuplicate(cert: altCert, importedSerials: importedSerialsThisBatch) {
+                failedImportsList.append("\(pending.filename): Duplicate certificate (already imported).")
+                importFailedCount += 1
+            } else {
+                saveLocalCertificate(altCert)
+                importedSerialsThisBatch.insert(altCert.serialNumber)
+                importSuccessCount += 1
+            }
             self.lastUsedPassword = importPasswordInput
             self.showPasswordPromptForImport = false
-            importSuccessCount += 1
             currentImportIndex += 1
             processNextImport()
         } catch ALTCertificateError.decryptionFailed {
             self.errorMessage = "Incorrect password for " + pending.filename
         } catch {
             self.showPasswordPromptForImport = false
+            failedImportsList.append("\(pending.filename): \(error.localizedDescription)")
             importFailedCount += 1
             currentImportIndex += 1
             processNextImport()
@@ -327,14 +404,15 @@ class CertificatesViewModel: ObservableObject {
     
     func cancelImport() {
         self.showPasswordPromptForImport = false
+        let pending = pendingImports[currentImportIndex]
+        failedImportsList.append("\(pending.filename): Password required but skipped.")
         importFailedCount += 1
         currentImportIndex += 1
         processNextImport()
     }
     
     private func showImportSummaryAlert() {
-        self.alertMessage = "Import completed.\nSuccess: \(importSuccessCount)\nFailed: \(importFailedCount)"
-        self.showAlert    = true
+        self.showImportSummary = true
     }
     
     func createCertificate(machineName: String, presentingViewController: UIViewController?) {
@@ -567,5 +645,17 @@ class CertificatesViewModel: ObservableObject {
         self.loadCertificates(presentingViewController: nil)
         self.alertMessage = "Successfully removed private key from certificate \(cert.name)."
         self.showAlert    = true
+    }
+    
+    private func isDuplicate(cert: ALTCertificate, importedSerials: Set<String>) -> Bool {
+        if importedSerials.contains(cert.serialNumber) {
+            return true
+        }
+        if let existing = self.certificates.first(where: { $0.serialNumber == cert.serialNumber }) {
+            if cert.privateKey == nil || existing.privateKey != nil {
+                return true
+            }
+        }
+        return false
     }
 }
