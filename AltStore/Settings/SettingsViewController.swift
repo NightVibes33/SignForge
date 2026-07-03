@@ -216,8 +216,8 @@ final class SettingsViewController: UITableViewController
             let appearance = UINavigationBarAppearance()
 //            appearance.configureWithOpaqueBackground()  // or .defaultBackground if you want blur
 //            appearance.backgroundColor = UIColor(named: "SettingsBackground")
-            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+            appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
             navigationController?.navigationBar.standardAppearance = appearance
             navigationController?.navigationBar.scrollEdgeAppearance = appearance       // required for iOS 26, maybe enforce it in storyboard?
         } 

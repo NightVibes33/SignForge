@@ -81,14 +81,12 @@ struct PrivateKeyTextInputView: View {
             .navigationTitle("Add Private Key")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if isEditing {
-                    ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .confirmationAction) {
+                    if isEditing {
                         SwiftUI.Button("Done") {
                             isEditing = false
                         }
-                    }
-                } else {
-                    ToolbarItem(placement: .confirmationAction) {
+                    } else {
                         SwiftUI.Button {
                             onCancel()
                         } label: {
