@@ -18,13 +18,13 @@ struct WirelessPairView: View {
     @State private var errorMessage: String? = nil
     @State private var serviceID: String? = nil
     @State private var port: Int? = nil
+    @State private var startTask: Task<Void, Never>? = nil
     
     private let pairing = WirelessPair()
+    private let spring = Animation.spring(response: 0.35, dampingFraction: 0.68)
     
     var body: some View {
         VStack(spacing: 24) {
-            Spacer()
-            
             // Pulsing Status Orb
             ZStack {
                 // Outer breathing glow
@@ -40,7 +40,7 @@ struct WirelessPairView: View {
                     .frame(width: 220, height: 220)
                     .scaleEffect(isAdvertising ? 1.2 : 1.0)
                     .opacity(isAdvertising ? 1.0 : 0.5)
-                    .animation(isAdvertising ? .easeInOut(duration: 1.8).repeatForever(autoreverses: true) : .default, value: isAdvertising)
+                    .animation(isAdvertising ? .interactiveSpring(response: 1.5, dampingFraction: 0.55).repeatForever(autoreverses: true) : .default, value: isAdvertising)
                 
                 // Secondary pulsing ring
                 Circle()
@@ -48,7 +48,7 @@ struct WirelessPairView: View {
                     .frame(width: 140, height: 140)
                     .scaleEffect(isAdvertising ? 1.15 : 1.0)
                     .opacity(isAdvertising ? 0.8 : 0.0)
-                    .animation(isAdvertising ? .easeInOut(duration: 1.8).delay(0.3).repeatForever(autoreverses: true) : .default, value: isAdvertising)
+                    .animation(isAdvertising ? .interactiveSpring(response: 1.5, dampingFraction: 0.55).delay(0.2).repeatForever(autoreverses: true) : .default, value: isAdvertising)
 
                 // Central Orb
                 Circle()
@@ -62,10 +62,20 @@ struct WirelessPairView: View {
                     .frame(width: 90, height: 90)
                     .shadow(color: isAdvertising ? Color.accentColor.opacity(0.5) : Color.clear, radius: 15)
                 
-                Image(systemName: isAdvertising ? "antenna.radiowaves.left.and.right" : "wifi.slash")
-                    .font(.system(size: 36, weight: .semibold))
-                    .foregroundColor(.white)
+                Group {
+                    if isAdvertising {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Image(systemName: "wifi.slash")
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundColor(.white)
             }
+            .frame(height: 220)
+            .padding(.top, 20)
             .padding(.bottom, 20)
             
             // Status Info
@@ -81,7 +91,7 @@ struct WirelessPairView: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
-                        .transition(.opacity)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             
@@ -116,7 +126,7 @@ struct WirelessPairView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text("\(port)")
+                            Text(String(port))
                                 .font(.system(.subheadline, design: .monospaced))
                                 .fontWeight(.semibold)
                         }
@@ -135,7 +145,7 @@ struct WirelessPairView: View {
                     .padding(.top, 4)
                 }
                 .padding(.horizontal, 32)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
             
             // PIN Display
@@ -157,9 +167,9 @@ struct WirelessPairView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(LinearGradient(gradient: Gradient(colors: [Color.accentColor.opacity(0.5), Color.clear]), startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5))
                         }
                     }
-                    .transition(.scale.combined(with: .opacity))
                 }
                 .padding(.vertical, 16)
+                .transition(.scale.combined(with: .opacity))
             }
             
             // Error Display
@@ -176,21 +186,24 @@ struct WirelessPairView: View {
             
             // Main Button
             SwiftUI.Button(action: togglePairing) {
-                Text(isAdvertising ? "Stop Advertising" : "Start Pairing")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: isAdvertising ? [Color.red, Color.red.opacity(0.85)] : [Color.accentColor, Color.accentColor.opacity(0.85)]),
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .shadow(color: (isAdvertising ? Color.red : Color.accentColor).opacity(0.3), radius: 10, y: 5)
+                HStack {
+                    if isAdvertising {
+                        Text("Stop Advertising")
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Text("Start Pairing")
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(isAdvertising ? Color.red : Color.accentColor)
+                .clipShape(Capsule())
+                .shadow(color: (isAdvertising ? Color.red : Color.accentColor).opacity(0.3), radius: 10, y: 5)
             }
+            .animation(.spring(response: 0.28, dampingFraction: 0.65), value: isAdvertising)
             .padding(.horizontal, 32)
             .padding(.bottom, 32)
         }
@@ -204,7 +217,9 @@ struct WirelessPairView: View {
     private func togglePairing() {
         if isAdvertising {
             pairing.stop()
-            withAnimation {
+            startTask?.cancel()
+            startTask = nil
+            withAnimation(spring) {
                 isAdvertising = false
                 statusText = "Ready to pair"
                 subStatusText = "Tap Start to advertise this device on the local network."
@@ -214,20 +229,34 @@ struct WirelessPairView: View {
                 port = nil
             }
         } else {
-            withAnimation {
+            startTask?.cancel()
+            
+            // Set initial state without changing status text immediately
+            withAnimation(spring) {
                 isAdvertising = true
-                statusText = "Waiting for connection..."
-                subStatusText = "Open Remote Pairing on your Apple TV / Vision Pro / host device to discover this server."
                 pinCode = nil
                 errorMessage = nil
                 serviceID = nil
                 port = nil
             }
             
+            // Debounce the "Waiting..." status text by 200ms
+            let debounceTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+                guard !Task.isCancelled else { return }
+                guard isAdvertising && serviceID == nil else { return }
+                withAnimation(spring) {
+                    statusText = "Waiting for connection..."
+                    subStatusText = "Open Remote Pairing on your Apple TV / Vision Pro / host device to discover this server."
+                }
+            }
+            startTask = debounceTask
+            
             let pairingFile = pairingFilePath()
             
             pairing.onReadyToPair = { serviceID, port in
-                withAnimation {
+                debounceTask.cancel()
+                withAnimation(spring) {
                     self.serviceID = serviceID
                     self.port = port
                     statusText = "Advertising server..."
@@ -236,7 +265,8 @@ struct WirelessPairView: View {
             }
             
             pairing.onPinReceived = { pin in
-                withAnimation {
+                debounceTask.cancel()
+                withAnimation(spring) {
                     pinCode = pin
                     statusText = "Device Connected"
                     subStatusText = "Enter the pairing code shown below on your other device settings screen."
@@ -244,7 +274,9 @@ struct WirelessPairView: View {
             }
             
             pairing.start(outPath: pairingFile) { result in
-                withAnimation {
+                debounceTask.cancel()
+                guard isAdvertising else { return }
+                withAnimation(spring) {
                     isAdvertising = false
                     pinCode = nil
                     serviceID = nil
