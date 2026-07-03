@@ -36,7 +36,6 @@ struct CertificateRowView: View {
                     + Text(displaySerial).font(.system(size: 11, design: .monospaced))
                 )
                 .foregroundColor(.secondary)
-                .onTapGesture { toggleReveal() }
                 
                 if let displayIdent = viewModel.displayIdentifier(for: cert, hasPrivateKey: hasPrivateKey) {
                     (
