@@ -1456,7 +1456,8 @@ extension SettingsViewController
                 }
                 
             case .networkDiscovery:
-                let discoveryView = BonjourDiscoveryView()
+                // let discoveryView = BonjourDiscoveryView()
+                let discoveryView = BonjourDiscoveryViewV2()
                 let vc = UIHostingController(rootView: discoveryView)
                 self.prepare(for: UIStoryboardSegue(identifier: "networkDiscovery", source: self, destination: vc), sender: nil)
                 
