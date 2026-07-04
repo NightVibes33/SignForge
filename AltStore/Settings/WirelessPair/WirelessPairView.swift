@@ -10,17 +10,8 @@ import SwiftUI
 import Minimuxer
 
 struct WirelessPairView: View {
-    @State private var statusText = "Ready to pair"
-    @State private var subStatusText = "Tap Start to advertise this device on the local network."
-    @State private var pinCode: String? = nil
-    @State private var isAdvertising = false
-    @State private var pairedDevice: WirelessPair.PairedDevice? = nil
-    @State private var errorMessage: String? = nil
-    @State private var serviceID: String? = nil
-    @State private var port: Int? = nil
-    @State private var startTask: Task<Void, Never>? = nil
+    @ObservedObject private var manager = WirelessPairManager.shared
     
-    private let pairing = WirelessPair()
     private let spring = Animation.spring(response: 0.35, dampingFraction: 0.68)
     private let pulse = Animation.interactiveSpring(response: 1.5, dampingFraction: 0.55)
     
@@ -32,39 +23,39 @@ struct WirelessPairView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: isAdvertising ? [Color.accentColor.opacity(0.25), Color.clear] : [Color.gray.opacity(0.1), Color.clear],
+                            colors: manager.isAdvertising ? [Color.accentColor.opacity(0.25), Color.clear] : [Color.gray.opacity(0.1), Color.clear],
                             center: .center,
                             startRadius: 20,
                             endRadius: 100
                         )
                     )
                     .frame(width: 220, height: 220)
-                    .scaleEffect(isAdvertising ? 1.2 : 1.0)
-                    .opacity(isAdvertising ? 1.0 : 0.5)
-                    .animation(isAdvertising ? pulse.repeatForever(autoreverses: true) : .default, value: isAdvertising)
+                    .scaleEffect(manager.isAdvertising ? 1.2 : 1.0)
+                    .opacity(manager.isAdvertising ? 1.0 : 0.5)
+                    .animation(manager.isAdvertising ? pulse.repeatForever(autoreverses: true) : .default, value: manager.isAdvertising)
                 
                 // Secondary pulsing ring
                 Circle()
-                    .stroke(isAdvertising ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 2)
+                    .stroke(manager.isAdvertising ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 2)
                     .frame(width: 140, height: 140)
-                    .scaleEffect(isAdvertising ? 1.15 : 1.0)
-                    .opacity(isAdvertising ? 0.8 : 0.0)
-                    .animation(isAdvertising ? pulse.delay(0.2).repeatForever(autoreverses: true) : .default, value: isAdvertising)
+                    .scaleEffect(manager.isAdvertising ? 1.15 : 1.0)
+                    .opacity(manager.isAdvertising ? 0.8 : 0.0)
+                    .animation(manager.isAdvertising ? pulse.delay(0.2).repeatForever(autoreverses: true) : .default, value: manager.isAdvertising)
 
                 // Central Orb
                 Circle()
                     .fill(
                         LinearGradient(
-                            gradient: Gradient(colors: isAdvertising ? [Color.accentColor, Color.accentColor.opacity(0.8)] : [Color.gray, Color.gray.opacity(0.8)]),
+                            gradient: Gradient(colors: manager.isAdvertising ? [Color.accentColor, Color.accentColor.opacity(0.8)] : [Color.gray, Color.gray.opacity(0.8)]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 90, height: 90)
-                    .shadow(color: isAdvertising ? Color.accentColor.opacity(0.5) : Color.clear, radius: 15)
+                    .shadow(color: manager.isAdvertising ? Color.accentColor.opacity(0.5) : Color.clear, radius: 15)
                 
                 Group {
-                    if isAdvertising {
+                    if manager.isAdvertising {
                         Image(systemName: "antenna.radiowaves.left.and.right")
                             .transition(.scale.combined(with: .opacity))
                     } else {
@@ -81,13 +72,13 @@ struct WirelessPairView: View {
             
             // Status Info
             VStack(spacing: 8) {
-                Text(statusText)
+                Text(manager.statusText)
                     .font(.title2)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                 
-                if serviceID == nil {
-                    Text(subStatusText)
+                if manager.serviceID == nil {
+                    Text(manager.subStatusText)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -97,7 +88,7 @@ struct WirelessPairView: View {
             }
             
             // Connection Details Card
-            if let serviceID, let port {
+            if let serviceID = manager.serviceID, let port = manager.port {
                     ConnectionDetailsCard(serviceID: serviceID, port: port)
                         .transition(.scale(scale: 0.95).combined(with: .opacity))
 
@@ -114,7 +105,7 @@ struct WirelessPairView: View {
 
             
             // PIN Display
-            if let pin = pinCode {
+            if let pin = manager.pinCode {
                 VStack(spacing: 12) {
                     Text("PAIRING CODE")
                         .font(.caption2)
@@ -138,7 +129,7 @@ struct WirelessPairView: View {
             }
             
             // Error Display
-            if let error = errorMessage {
+            if let error = manager.errorMessage {
                 Text(error)
                     .font(.footnote)
                     .foregroundColor(.red)
@@ -152,7 +143,7 @@ struct WirelessPairView: View {
             // Main Button
             SwiftUI.Button(action: togglePairing) {
                 HStack {
-                    if isAdvertising {
+                    if manager.isAdvertising {
                         Text("Stop Advertising")
                             .transition(.scale.combined(with: .opacity))
                     } else {
@@ -164,104 +155,24 @@ struct WirelessPairView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(isAdvertising ? Color.red : Color.accentColor)
+                .background(manager.isAdvertising ? Color.red : Color.accentColor)
                 .clipShape(Capsule())
-                .shadow(color: (isAdvertising ? Color.red : Color.accentColor).opacity(0.3), radius: 10, y: 5)
+                .shadow(color: (manager.isAdvertising ? Color.red : Color.accentColor).opacity(0.3), radius: 10, y: 5)
             }
-            .animation(.spring(response: 0.28, dampingFraction: 0.65), value: isAdvertising)
+            .animation(.spring(response: 0.28, dampingFraction: 0.65), value: manager.isAdvertising)
             .padding(.horizontal, 32)
             .padding(.bottom, 32)
         }
         .navigationTitle("Wireless Pairing")
         .navigationBarTitleDisplayMode(.inline)
-        .onDisappear {
-            pairing.stop()
-        }
     }
     
     private func togglePairing() {
-        if isAdvertising {
-            pairing.stop()
-            startTask?.cancel()
-            startTask = nil
-            withAnimation(spring) {
-                isAdvertising = false
-                statusText = "Ready to pair"
-                subStatusText = "Tap Start to advertise this device on the local network."
-                pinCode = nil
-                errorMessage = nil
-                serviceID = nil
-                port = nil
-            }
-        } else {
-            startTask?.cancel()
-            
-            // Set initial state without changing status text immediately
-            withAnimation(spring) {
-                isAdvertising = true
-                pinCode = nil
-                errorMessage = nil
-                serviceID = nil
-                port = nil
-            }
-            
-            // Debounce the "Waiting..." status text by 200ms
-            let debounceTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
-                guard !Task.isCancelled else { return }
-                guard isAdvertising && serviceID == nil else { return }
-                withAnimation(spring) {
-                    statusText = "Waiting for connection..."
-                    subStatusText = "Open Remote Pairing on your Apple TV / Vision Pro / host device to discover this server."
-                }
-            }
-            startTask = debounceTask
-            
-            let pairingFile = pairingFilePath()
-            
-            pairing.onReadyToPair = { serviceID, port in
-                debounceTask.cancel()
-                withAnimation(spring) {
-                    self.serviceID = serviceID
-                    self.port = port
-                    statusText = "Advertising server..."
-                    subStatusText = "Ensure both devices are on the same Wi-Fi."
-                }
-            }
-            
-            pairing.onPinReceived = { pin in
-                debounceTask.cancel()
-                withAnimation(spring) {
-                    pinCode = pin
-                    statusText = "Device Connected"
-                    subStatusText = "Enter the pairing code shown below on your other device settings screen."
-                }
-            }
-            
-            pairing.start(outPath: pairingFile) { result in
-                debounceTask.cancel()
-                guard isAdvertising else { return }
-                withAnimation(spring) {
-                    isAdvertising = false
-                    pinCode = nil
-                    serviceID = nil
-                    port = nil
-                    
-                    switch result {
-                    case .success(let device):
-                        pairedDevice = device
-                        statusText = "Success!"
-                        subStatusText = "Successfully paired with \(device.name) (\(device.model))!\nPairing file saved to documents."
-                    case .failure(let error):
-                        errorMessage = error.localizedDescription
-                        statusText = "Pairing Failed"
-                        subStatusText = "An error occurred during pairing."
-                    }
-                }
-            }
+        withAnimation(spring) {
+            manager.togglePairing()
         }
     }
-    
+
     private func pairingFilePath() -> String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("rp_pairing_file.plist").path
