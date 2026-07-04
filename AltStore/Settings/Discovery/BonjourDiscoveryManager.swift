@@ -102,6 +102,29 @@ private let knownServiceTypes: [String: String] = [
     "_workstation._tcp.":   "Workstation",
     "_device-info._tcp.":   "Device Info",
     "_touch-able._tcp.":    "Remote App (Apple TV Remote)",
+    "_srpl-tls._tcp.":      "Spatial Remote Playback Link TLS",
+    "_trel._udp.":          "Thread Radio Encapsulation Link",
+    "_ipps._tcp.":          "Secure Internet Printing Protocol",
+    "_webdav._tcp.":        "Web Distributed Authoring and Versioning (WebDAV)",
+    "_webdavs._tcp.":       "Secure WebDAV",
+    "_telnet._tcp.":        "Telnet Remote Login Protocol",
+    "_coap._udp.":          "Constrained Application Protocol (CoAP)",
+    "_coaps._udp.":         "Secure CoAP",
+    "_mqtt._tcp.":          "Message Queuing Telemetry Transport (MQTT)",
+    "_adb._tcp.":           "Android Debug Bridge (ADB)",
+    "_airdrop._tcp.":       "Apple AirDrop",
+    "_sidecar._tcp.":       "Apple Sidecar",
+    "_sonos._tcp.":         "Sonos Speaker System",
+    "_plex._tcp.":          "Plex Media Server",
+    "_amzn-alexa._tcp.":    "Amazon Alexa Service",
+    "_home-assistant._tcp.": "Home Assistant Smart Home",
+    "_rtsp._tcp.":          "Real Time Streaming Protocol (RTSP)",
+    "_sip._udp.":           "Session Initiation Protocol (SIP over UDP)",
+    "_sip._tcp.":           "Session Initiation Protocol (SIP over TCP)",
+    "_h323._tcp.":          "H.323 Video Conferencing (TCP)",
+    "_h323._udp.":          "H.323 Video Conferencing (UDP)",
+    "_ws._tcp.":            "WebSocket Connection",
+    "_wss._tcp.":           "Secure WebSocket Connection",
 ]
 
 
@@ -128,10 +151,12 @@ final class BonjourDiscoveryManager: NSObject, ObservableObject {
     
     private var fallbackBrowsers: [NetServiceBrowser] = []
     private var fallbackTimer: Timer?
+    private var timeoutTimer: Timer?
     
     private var discoveredDomains = Set<String>()
     private var discoveredTypes = Set<String>()
     private var discoveredInstances: [String: DiscoveredService] = [:]
+    private var currentDomain: String = "local."
     
     override init() {
         super.init()
@@ -172,6 +197,7 @@ final class BonjourDiscoveryManager: NSObject, ObservableObject {
         stopTypeSearch()
         discoveredTypes.removeAll()
         serviceTypes.removeAll()
+        currentDomain = domainWithDot
         isSearching = true
         
         let browser = NetServiceBrowser()
@@ -186,6 +212,15 @@ final class BonjourDiscoveryManager: NSObject, ObservableObject {
             if self.serviceTypes.isEmpty {
                 print("[BonjourDiscovery] Falling back to searching declared service types in parallel...")
                 self.startFallbackSearches(in: domainWithDot)
+            }
+        }
+        
+        // Stop loading spinner after 5.0 seconds if we haven't found anything
+        timeoutTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            print("[BonjourDiscovery] Search timeout reached.")
+            DispatchQueue.main.async {
+                self.isSearching = false
             }
         }
     }
@@ -204,15 +239,63 @@ final class BonjourDiscoveryManager: NSObject, ObservableObject {
             "_companion-link._tcp.",
             "_meshcop._udp.",
             "_remotepairing._tcp.",
-            "_rp-tunnel._tcp."
+            "_rp-tunnel._tcp.",
+            "_srpl-tls._tcp.",
+            "_trel._udp.",
+            "_http._tcp.",
+            "_https._tcp.",
+            "_smb._tcp.",
+            "_afpovertcp._tcp.",
+            "_printer._tcp.",
+            "_ipp._tcp.",
+            "_ipps._tcp.",
+            "_scanner._tcp.",
+            "_daap._tcp.",
+            "_dpap._tcp.",
+            "_airport._tcp.",
+            "_homekit._tcp.",
+            "_hap._tcp.",
+            "_touch-able._tcp.",
+            "_spotify-connect._tcp.",
+            "_googlecast._tcp.",
+            "_device-info._tcp.",
+            "_workstation._tcp.",
+            "_rfb._tcp.",
+            "_net-assistant._udp.",
+            "_rdlink._tcp.",
+            "_stikpairprobe._tcp.",
+            "_webdav._tcp.",
+            "_webdavs._tcp.",
+            "_ftp._tcp.",
+            "_telnet._tcp.",
+            "_coap._udp.",
+            "_coaps._udp.",
+            "_mqtt._tcp.",
+            "_adb._tcp.",
+            "_airdrop._tcp.",
+            "_sidecar._tcp.",
+            "_sonos._tcp.",
+            "_plex._tcp.",
+            "_amzn-alexa._tcp.",
+            "_home-assistant._tcp.",
+            "_rtsp._tcp.",
+            "_sip._udp.",
+            "_sip._tcp.",
+            "_h323._tcp.",
+            "_h323._udp.",
+            "_ws._tcp.",
+            "_wss._tcp."
         ]
         
         for t in typesToBrowse {
-            let browser = NetServiceBrowser()
-            browser.delegate = self
-            browser.searchForServices(ofType: t, inDomain: domain)
-            fallbackBrowsers.append(browser)
-            print("[BonjourDiscovery] Fallback: Started browsing for service type '\(t)' in domain '\(domain)'")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let browser = NetServiceBrowser()
+                browser.delegate = self
+                self.fallbackBrowsers.append(browser)
+                browser.searchForServices(ofType: t, inDomain: domain)
+                print("[BonjourDiscovery] Fallback: Started browsing for service type '\(t)' in domain '\(domain)'")
+            }
         }
     }
     
@@ -222,10 +305,13 @@ final class BonjourDiscoveryManager: NSObject, ObservableObject {
         typeBrowser = nil
         fallbackTimer?.invalidate()
         fallbackTimer = nil
+        timeoutTimer?.invalidate()
+        timeoutTimer = nil
         for b in fallbackBrowsers {
             b.stop()
         }
         fallbackBrowsers.removeAll()
+        isSearching = false
     }
     
     // MARK: - Instance Discovery
@@ -347,8 +433,19 @@ extension BonjourDiscoveryManager: NetServiceBrowserDelegate {
     
     func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String : NSNumber]) {
         print("[BonjourDiscovery] netServiceBrowser didNotSearch: Error dictionary: \(errorDict)")
-        DispatchQueue.main.async { [weak self] in
-            self?.isSearching = false
+        if browser === self.typeBrowser {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                print("[BonjourDiscovery] Meta-browser failed. Triggering fallback parallel search immediately...")
+                self.fallbackTimer?.invalidate()
+                self.fallbackTimer = nil
+                
+                self.startFallbackSearches(in: self.currentDomain)
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.isSearching = false
+            }
         }
     }
     
@@ -380,15 +477,22 @@ extension BonjourDiscoveryManager: NetServiceBrowserDelegate {
     }
     
     func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
-        let isTypeSearch = (browser === self.typeBrowser)
-        print("[BonjourDiscovery] didFind: Found service name='\(service.name)', type='\(service.type)', domain='\(service.domain)' (isTypeSearch: \(isTypeSearch), moreComing: \(moreComing))")
+        let isFallbackTypeSearch = self.fallbackBrowsers.contains(browser)
+        let isTypeSearch = (browser === self.typeBrowser) || isFallbackTypeSearch
+        print("[BonjourDiscovery] didFind: Found service name='\(service.name)', type='\(service.type)', domain='\(service.domain)' (isTypeSearch: \(isTypeSearch), isFallbackTypeSearch: \(isFallbackTypeSearch), moreComing: \(moreComing))")
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
             if isTypeSearch {
-                let fullType = "\(service.name).\(service.type)"
-                    .replacingOccurrences(of: "..", with: ".")
+                let fullType: String
+                if isFallbackTypeSearch {
+                    fullType = service.type.hasSuffix(".") ? service.type : service.type + "."
+                } else {
+                    let reconstructed = "\(service.name).\(service.type)"
+                        .replacingOccurrences(of: "..", with: ".")
+                    fullType = reconstructed.hasSuffix(".") ? reconstructed : reconstructed + "."
+                }
                 
                 print("[BonjourDiscovery] Found service type reconstructed: '\(fullType)'")
                 if self.discoveredTypes.insert(fullType).inserted {

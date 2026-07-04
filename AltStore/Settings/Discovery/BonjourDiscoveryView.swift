@@ -20,7 +20,9 @@ struct BonjourDiscoveryView: View {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            if manager.domains.isEmpty && !manager.isSearching {
+            if manager.isSearching && manager.domains.isEmpty {
+                ProgressView("Searching for domains…")
+            } else if manager.domains.isEmpty {
                 emptyState
             } else {
                 domainsList
@@ -75,17 +77,6 @@ struct BonjourDiscoveryView: View {
                     }
                 }
             }
-            
-            if manager.isSearching {
-                Section {
-                    HStack(spacing: 12) {
-                        ProgressView()
-                        Text("Searching for domains…")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
         }
         .listStyle(.insetGrouped)
     }
@@ -105,7 +96,9 @@ struct ServiceTypesView: View {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            if manager.serviceTypes.isEmpty && !manager.isSearching {
+            if manager.isSearching && manager.serviceTypes.isEmpty {
+                ProgressView("Searching for service types…")
+            } else if manager.serviceTypes.isEmpty {
                 emptyState
             } else {
                 serviceTypesList
@@ -217,7 +210,9 @@ struct ServiceInstancesView: View {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            if manager.instances.isEmpty && !manager.isSearching {
+            if manager.isSearching && manager.instances.isEmpty {
+                ProgressView("Searching for instances…")
+            } else if manager.instances.isEmpty {
                 emptyState
             } else {
                 instancesList
