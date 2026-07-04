@@ -2411,6 +2411,27 @@ private extension AppManager {
 
         while true {
             if (currentError as? MinimuxerError) == .PairingFile {
+                let fm = FileManager.default
+                let documentsPath = fm.documentsDirectory.appendingPathComponent(PairingFileManager.pairingFileName)
+                
+                // If this is the first iteration, try to reload from disk first (useful if iloader replaced it while in background)
+                if isFirstPrompt,
+                   fm.fileExists(atPath: documentsPath.path),
+                   let contents = try? String(contentsOf: documentsPath),
+                   !contents.isEmpty {
+                    
+                    isFirstPrompt = false
+                    print("[PairingFile] Automatically reloading pairing file from disk...")
+                    do {
+                        try reinitializePairingData(contents)
+                        try await AppManager.restartMuxerServices()
+                        return
+                    } catch {
+                        currentError = error
+                        // Continue to picker prompt if auto-reload fails
+                    }
+                }
+                
                 guard let presentingVC = presentingViewController else {
                     throw currentError!
                 }
@@ -2420,11 +2441,16 @@ private extension AppManager {
                     : NSLocalizedString("Selected Pairing file is still Invalid!", comment: "")
                 isFirstPrompt = false
 
-                _ = try await PairingFileManager.shared.importPairingFile(
+                let url = try await PairingFileManager.shared.importPairingFile(
                     presentingVC: presentingVC,
                     title: title,
                     message: NSLocalizedString("Select 'OK' to locate the latest pairing file or tap 'Help' for more info", comment: "")
                 )
+                
+                if let contents = try? String(contentsOf: url), !contents.isEmpty {
+                    print("[AppManager] Reloading updated pairing file after user import...")
+                    try? reinitializePairingData(contents)
+                }
             }
 
             do {

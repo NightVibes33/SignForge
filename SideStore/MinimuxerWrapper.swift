@@ -96,6 +96,16 @@ func markMuxerServicesNeedsRestart(error: Error) {
     AppManager.markMuxerServicesNeedsRestart(error: error)
 }
 
+func reinitializePairingData(_ pairingFile: String) throws {
+    defer { print("[SideStore] reinitializePairingData(pairingFile) completed") }
+    #if targetEnvironment(simulator)
+    print("[SideStore] reinitializePairingData(pairingFile) is no-op on simulator")
+    #else
+    print("[SideStore] reinitializePairingData(pairingFile) invoked")
+    try Minimuxer.reinitializePairingData(pairingFile: pairingFile)
+    #endif
+}
+
 func minimuxerStart(_ pairingFile: String) throws {
     defer { print("[SideStore] minimuxerStart(pairingFile) completed") }
     #if targetEnvironment(simulator)
