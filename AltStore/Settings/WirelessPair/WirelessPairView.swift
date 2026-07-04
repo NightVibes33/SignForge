@@ -22,6 +22,7 @@ struct WirelessPairView: View {
     
     private let pairing = WirelessPair()
     private let spring = Animation.spring(response: 0.35, dampingFraction: 0.68)
+    private let pulse = Animation.interactiveSpring(response: 1.5, dampingFraction: 0.55)
     
     var body: some View {
         VStack(spacing: 24) {
@@ -40,7 +41,7 @@ struct WirelessPairView: View {
                     .frame(width: 220, height: 220)
                     .scaleEffect(isAdvertising ? 1.2 : 1.0)
                     .opacity(isAdvertising ? 1.0 : 0.5)
-                    .animation(isAdvertising ? .interactiveSpring(response: 1.5, dampingFraction: 0.55).repeatForever(autoreverses: true) : .default, value: isAdvertising)
+                    .animation(isAdvertising ? pulse.repeatForever(autoreverses: true) : .default, value: isAdvertising)
                 
                 // Secondary pulsing ring
                 Circle()
@@ -48,7 +49,7 @@ struct WirelessPairView: View {
                     .frame(width: 140, height: 140)
                     .scaleEffect(isAdvertising ? 1.15 : 1.0)
                     .opacity(isAdvertising ? 0.8 : 0.0)
-                    .animation(isAdvertising ? .interactiveSpring(response: 1.5, dampingFraction: 0.55).delay(0.2).repeatForever(autoreverses: true) : .default, value: isAdvertising)
+                    .animation(isAdvertising ? pulse.delay(0.2).repeatForever(autoreverses: true) : .default, value: isAdvertising)
 
                 // Central Orb
                 Circle()
@@ -96,45 +97,11 @@ struct WirelessPairView: View {
             }
             
             // Connection Details Card
-            if let serviceID = serviceID, let port = port {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "network")
-                            .foregroundColor(.accentColor)
-                        Text("Connection Details")
-                            .font(.headline)
-                    }
-                    .padding(.bottom, 4)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Device ID:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(serviceID)
-                                .font(.system(.subheadline, design: .monospaced))
-                                .fontWeight(.semibold)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        
-                        Divider()
-                        
-                        HStack {
-                            Text("Port:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(String(port))
-                                .font(.system(.subheadline, design: .monospaced))
-                                .fontWeight(.semibold)
-                        }
-                    }
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-                    
-                    HStack(spacing: 8) {
+            if let serviceID, let port {
+                    ConnectionDetailsCard(serviceID: serviceID, port: port)
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+
+                HStack(spacing: 8) {
                         Image(systemName: "wifi")
                             .font(.subheadline)
                             .foregroundColor(.accentColor)
@@ -143,10 +110,8 @@ struct WirelessPairView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(.top, 4)
-                }
-                .padding(.horizontal, 32)
-                .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
+
             
             // PIN Display
             if let pin = pinCode {
@@ -300,5 +265,79 @@ struct WirelessPairView: View {
     private func pairingFilePath() -> String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("rp_pairing_file.plist").path
+    }
+}
+
+
+struct ConnectionDetailsCard: View {
+    let serviceID: String
+    let port: Int
+    @State private var copiedLabel: String?
+    
+    var rows: [(label: String, value: String)] {[
+        ("Device ID", serviceID),
+        ("Port", String(port))
+    ]}
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack{
+                Image(systemName: "network")
+                    .foregroundColor(.accentColor)
+                Text("Connection Details")
+                    .font(.headline)
+            }
+            .padding(.horizontal, 16)
+
+            VStack(alignment: .leading, spacing: 0){
+                Group{
+                    ForEach(0..<rows.count, id: \.self) { index in
+                        let (label, value) = rows[index]
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(label)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Text(value)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .lineLimit(1)
+                            }
+                            
+                            Spacer()
+                            
+                            SwiftUI.Button {
+                                UIPasteboard.general.string = value
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    copiedLabel = label
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        if copiedLabel == label {
+                                            copiedLabel = nil
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: copiedLabel == label ? "checkmark.circle.fill" : "doc.on.doc")
+                                    .foregroundColor(copiedLabel == label ? .green : .secondary)
+                                    .imageScale(.medium)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        if index != rows.count-1 {
+                            Divider()
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(20)
+        }
+        .padding(.horizontal, 16)
     }
 }
