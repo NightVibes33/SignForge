@@ -79,6 +79,9 @@ final class LaunchViewController: UIViewController {
         if UserDefaults.standard.enableEMPforWireguard {
             startEMProxy(bind_addr: AppConstants.Proxy.serverURL)
         }
+        
+        startNetworkMonitoring()
+        
         guard let pf = fetchPairingFile() else {
             displayError("Device pairing file not found.")
             return

@@ -106,6 +106,13 @@ func reinitializePairingData(_ pairingFile: String) throws {
     #endif
 }
 
+func startNetworkMonitoring() {
+    #if !targetEnvironment(simulator)
+    bindTunnelConfig()
+    NetworkObserver.shared.start()
+    #endif
+}
+
 func minimuxerStart(_ pairingFile: String) throws {
     defer { print("[SideStore] minimuxerStart(pairingFile) completed") }
     #if targetEnvironment(simulator)
