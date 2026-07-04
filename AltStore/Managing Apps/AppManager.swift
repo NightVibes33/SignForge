@@ -838,7 +838,8 @@ extension AppManager
                 try await self.perform(installedApps.map { .refresh($0) }, presentingViewController: presentingViewController, group: group)
             } catch {
                 group.context.error = error
-                group.completionHandler?([:])
+                let results = Dictionary(uniqueKeysWithValues: installedApps.map { ($0.bundleIdentifier, Result<InstalledApp, Error>.failure(error)) })
+                group.completionHandler?(results)
             }
         }
         
