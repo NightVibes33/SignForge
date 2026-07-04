@@ -104,7 +104,18 @@
 	<array>
 		<string>_altserver._tcp</string>
 		<string>_remotepairing-pairable-host._tcp</string>
-		<string>_stikpairprobe._tcp</string>
+		<string>_services._dns-sd._udp</string>
+		<string>_airplay._tcp</string>
+		<string>_raop._tcp</string>
+		<string>_sftp-ssh._tcp</string>
+		<string>_sleep-proxy._udp</string>
+		<string>_ssh._tcp</string>
+		<string>_apple-mobdev2._tcp</string>
+		<string>_asquic._udp</string>
+		<string>_companion-link._tcp</string>
+		<string>_meshcop._udp</string>
+		<string>_remotepairing._tcp</string>
+		<string>_rp-tunnel._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>SideStore uses the local network to find and communicate with your device.</string>

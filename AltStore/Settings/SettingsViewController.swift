@@ -80,9 +80,10 @@ extension SettingsViewController
         case cacheManagement        // row 6 - Cache Management
         case certificateManagement  // row 7 - Certificate Management
         case wirelessPair           // row 8 - Wireless Pairing (only iOS 26+)
-        case exportResignedApp      // row 9 - Export Resigned Apps (moved here from diagnostics)
-        case enableEMPForWiregaurd  // row 10 - Enable EMP for wireguard
-        case customizeAppId         // row 11 - Enable AppId Customization
+        case networkDiscovery       // row 9 - Network Discovery (Bonjour browser)
+        case exportResignedApp      // row 10 - Export Resigned Apps (moved here from diagnostics)
+        case enableEMPForWiregaurd  // row 11 - Enable EMP for wireguard
+        case customizeAppId         // row 12 - Enable AppId Customization
     }
     
     private enum SigningSettingsRow: Int, CaseIterable {
@@ -390,10 +391,10 @@ final class SettingsViewController: UITableViewController
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "anisetteServers" || segue.identifier == "certificateManagement" || segue.identifier == "wirelessPairing" {
+        if segue.identifier == "anisetteServers" || segue.identifier == "certificateManagement" || segue.identifier == "wirelessPairing" || segue.identifier == "networkDiscovery" {
             let controller = segue.destination
             
-            if segue.identifier == "certificateManagement" || segue.identifier == "wirelessPairing" {
+            if segue.identifier == "certificateManagement" || segue.identifier == "wirelessPairing" || segue.identifier == "networkDiscovery" {
                 let appearance = UINavigationBarAppearance()
                 appearance.configureWithDefaultBackground()
                 appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
@@ -1453,6 +1454,11 @@ extension SettingsViewController
                 } else {
                     break
                 }
+                
+            case .networkDiscovery:
+                let discoveryView = BonjourDiscoveryView()
+                let vc = UIHostingController(rootView: discoveryView)
+                self.prepare(for: UIStoryboardSegue(identifier: "networkDiscovery", source: self, destination: vc), sender: nil)
                 
             case .cacheManagement:
                 let cacheManagementView = CacheManagementView()
