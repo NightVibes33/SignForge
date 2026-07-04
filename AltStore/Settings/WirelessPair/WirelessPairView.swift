@@ -272,7 +272,6 @@ struct WirelessPairView: View {
 struct ConnectionDetailsCard: View {
     let serviceID: String
     let port: Int
-    @State private var copiedLabel: String?
     
     var rows: [(label: String, value: String)] {[
         ("Device ID", serviceID),
@@ -290,54 +289,68 @@ struct ConnectionDetailsCard: View {
             .padding(.horizontal, 16)
 
             VStack(alignment: .leading, spacing: 0){
-                Group{
-                    ForEach(0..<rows.count, id: \.self) { index in
-                        let (label, value) = rows[index]
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(label)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Text(value)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .lineLimit(1)
-                            }
-                            
-                            Spacer()
-                            
-                            SwiftUI.Button {
-                                UIPasteboard.general.string = value
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    copiedLabel = label
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        if copiedLabel == label {
-                                            copiedLabel = nil
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: copiedLabel == label ? "checkmark.circle.fill" : "doc.on.doc")
-                                    .foregroundColor(copiedLabel == label ? .green : .secondary)
-                                    .imageScale(.medium)
-                            }
-                            .buttonStyle(.plain)
+                ForEach(0..<rows.count, id: \.self) { index in
+                    let (label, value) = rows[index]
+                    let isFirst = index == 0
+                    let isLast = index == rows.count - 1
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(label)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Text(value)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .lineLimit(1)
                         }
                         .padding(.vertical, 12)
+                        .padding(.horizontal, 16)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         
-                        if index != rows.count-1 {
+                        if !isLast {
                             Divider()
+                                .padding(.leading, 16)
+                        }
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(
+                        RoundedCorner(
+                            radius: 20,
+                            corners: {
+                                var c: UIRectCorner = []
+                                if isFirst { c.formUnion([.topLeft, .topRight]) }
+                                if isLast { c.formUnion([.bottomLeft, .bottomRight]) }
+                                return c
+                            }()
+                        )
+                    )
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        SwiftUI.Button {
+                            UIPasteboard.general.string = value
+                        } label: {
+                            Label("Copy \(label)", systemImage: "doc.on.doc")
                         }
                     }
                 }
-                .padding(.horizontal, 16)
             }
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(20)
         }
         .padding(.horizontal, 16)
+    }
+}
+
+// MARK: - Selective Corner Rounding Shape
+private struct RoundedCorner: Shape {
+    var radius: CGFloat
+    var corners: UIRectCorner
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
     }
 }
