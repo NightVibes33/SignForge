@@ -722,7 +722,17 @@ final class AuthenticationOperation: ResultOperation<(ALTTeam, ALTCertificate?, 
             fetchAppIDsOperation.resultHandler = { (result) in
                 do {
                     let (_, context) = try result.get()
-                    try context.save()
+                    var saveError: Error?
+                    context.performAndWait {
+                        do {
+                            try context.save()
+                        } catch {
+                            saveError = error
+                        }
+                    }
+                    if let saveError = saveError {
+                        throw saveError
+                    }
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
