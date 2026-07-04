@@ -61,70 +61,6 @@ struct ResolvedServiceInfoV2: Identifiable {
 }
 
 
-// MARK: - Known Service Types
-
-private let knownServiceTypesV2: [String: String] = [
-    "_airplay._tcp.":       "Protocol for streaming of audio/video content",
-    "_raop._tcp.":          "Remote Audio Output Protocol (AirTunes)",
-    "_sftp-ssh._tcp.":      "Secure File Transfer Protocol over SSH",
-    "_sleep-proxy._udp.":   "Sleep Proxy Server",
-    "_ssh._tcp.":           "SSH Remote Login Protocol",
-    "_http._tcp.":          "World Wide Web (HTTP)",
-    "_https._tcp.":         "World Wide Web (HTTPS)",
-    "_smb._tcp.":           "SMB File Sharing",
-    "_afpovertcp._tcp.":    "Apple Filing Protocol (AFP)",
-    "_printer._tcp.":       "Printer",
-    "_ipp._tcp.":           "Internet Printing Protocol",
-    "_scanner._tcp.":       "Scanner",
-    "_ftp._tcp.":           "File Transfer Protocol",
-    "_nfs._tcp.":           "Network File System",
-    "_daap._tcp.":          "Digital Audio Access Protocol (iTunes)",
-    "_dpap._tcp.":          "Digital Photo Access Protocol (iPhoto)",
-    "_airport._tcp.":       "AirPort Base Station",
-    "_homekit._tcp.":       "HomeKit Accessory",
-    "_hap._tcp.":           "HomeKit Accessory Protocol",
-    "_companion-link._tcp.": "Companion Link (Apple Watch)",
-    "_apple-mobdev2._tcp.":  "Apple Mobile Device v2",
-    "_remotepairing._tcp.":  "Remote Pairing",
-    "_remotepairing-pairable-host._tcp.": "Remote Pairing (Pairable Host)",
-    "_rdlink._tcp.":        "Remote Debug Link",
-    "_net-assistant._udp.": "Apple Remote Desktop",
-    "_rfb._tcp.":           "Remote Frame Buffer (VNC)",
-    "_spotify-connect._tcp.": "Spotify Connect",
-    "_googlecast._tcp.":    "Google Cast (Chromecast)",
-    "_meshcop._udp.":       "Thread Mesh Commissioning",
-    "_asquic._udp.":        "Apple QUIC Service",
-    "_rp-tunnel._tcp.":     "Remote Pairing Tunnel",
-    "_altserver._tcp.":     "AltServer",
-    "_workstation._tcp.":   "Workstation",
-    "_device-info._tcp.":   "Device Info",
-    "_touch-able._tcp.":    "Remote App (Apple TV Remote)",
-    "_srpl-tls._tcp.":      "Spatial Remote Playback Link TLS",
-    "_trel._udp.":          "Thread Radio Encapsulation Link",
-    "_ipps._tcp.":          "Secure Internet Printing Protocol",
-    "_webdav._tcp.":        "Web Distributed Authoring and Versioning (WebDAV)",
-    "_webdavs._tcp.":       "Secure WebDAV",
-    "_telnet._tcp.":        "Telnet Remote Login Protocol",
-    "_coap._udp.":          "Constrained Application Protocol (CoAP)",
-    "_coaps._udp.":         "Secure CoAP",
-    "_mqtt._tcp.":          "Message Queuing Telemetry Transport (MQTT)",
-    "_adb._tcp.":           "Android Debug Bridge (ADB)",
-    "_airdrop._tcp.":       "Apple AirDrop",
-    "_sidecar._tcp.":       "Apple Sidecar",
-    "_sonos._tcp.":         "Sonos Speaker System",
-    "_plex._tcp.":          "Plex Media Server",
-    "_amzn-alexa._tcp.":    "Amazon Alexa Service",
-    "_home-assistant._tcp.": "Home Assistant Smart Home",
-    "_rtsp._tcp.":          "Real Time Streaming Protocol (RTSP)",
-    "_sip._udp.":           "Session Initiation Protocol (SIP over UDP)",
-    "_sip._tcp.":           "Session Initiation Protocol (SIP over TCP)",
-    "_h323._tcp.":          "H.323 Video Conferencing (TCP)",
-    "_h323._udp.":          "H.323 Video Conferencing (UDP)",
-    "_ws._tcp.":            "WebSocket Connection",
-    "_wss._tcp.":           "Secure WebSocket Connection",
-]
-
-
 // MARK: - BonjourDiscoveryManagerV2
 
 final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
@@ -144,7 +80,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     private var instanceBrowser: NWBrowser?
     private var fallbackBrowsers: [NWBrowser] = []
     private var activeConnection: NWConnection?
-    private var fallbackTimer: Timer?
+    private var timeoutTask: Task<Void, Never>?
     
     private var discoveredTypes = Set<String>()
     private var discoveredInstances = Set<DiscoveredServiceV2>()
@@ -163,9 +99,10 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
         print("[BonjourDiscoveryV2] Starting domain discovery...")
         isSearching = true
         // Network.framework doesn't browse domains. We present the standard default 'local' domain.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.domains = ["local"]
-            self?.isSearching = false
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            self.domains = ["local"]
+            self.isSearching = false
         }
     }
     
@@ -195,76 +132,18 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
         self.startFallbackSearches(in: domainWithDot)
         
         // Stop loading spinner after 5 seconds if we haven't found anything
-        fallbackTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            guard let self = self else { return }
-            print("[BonjourDiscoveryV2] Search timeout reached.")
-            DispatchQueue.main.async {
+        timeoutTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+                guard let self = self else { return }
+                print("[BonjourDiscoveryV2] Search timeout reached.")
                 self.isSearching = false
-            }
+            } catch {}
         }
     }
     
     private func startFallbackSearches(in domain: String) {
-        let typesToBrowse = [
-            "_altserver._tcp.",
-            "_remotepairing-pairable-host._tcp.",
-            "_airplay._tcp.",
-            "_raop._tcp.",
-            "_sftp-ssh._tcp.",
-            "_sleep-proxy._udp.",
-            "_ssh._tcp.",
-            "_apple-mobdev2._tcp.",
-            "_asquic._udp.",
-            "_companion-link._tcp.",
-            "_meshcop._udp.",
-            "_remotepairing._tcp.",
-            "_rp-tunnel._tcp.",
-            "_srpl-tls._tcp.",
-            "_trel._udp.",
-            "_http._tcp.",
-            "_https._tcp.",
-            "_smb._tcp.",
-            "_afpovertcp._tcp.",
-            "_printer._tcp.",
-            "_ipp._tcp.",
-            "_ipps._tcp.",
-            "_scanner._tcp.",
-            "_daap._tcp.",
-            "_dpap._tcp.",
-            "_airport._tcp.",
-            "_homekit._tcp.",
-            "_hap._tcp.",
-            "_touch-able._tcp.",
-            "_spotify-connect._tcp.",
-            "_googlecast._tcp.",
-            "_device-info._tcp.",
-            "_workstation._tcp.",
-            "_rfb._tcp.",
-            "_net-assistant._udp.",
-            "_rdlink._tcp.",
-            "_stikpairprobe._tcp.",
-            "_webdav._tcp.",
-            "_webdavs._tcp.",
-            "_ftp._tcp.",
-            "_telnet._tcp.",
-            "_coap._udp.",
-            "_coaps._udp.",
-            "_mqtt._tcp.",
-            "_adb._tcp.",
-            "_airdrop._tcp.",
-            "_sidecar._tcp.",
-            "_sonos._tcp.",
-            "_plex._tcp.",
-            "_amzn-alexa._tcp.",
-            "_home-assistant._tcp.",
-            "_rtsp._tcp.",
-            "_sip._udp.",
-            "_sip._tcp.",
-            "_h323._tcp.",
-            "_h323._udp.",
-            "_ws._tcp.",
-            "_wss._tcp."
-        ]
+        let typesToBrowse = commonServiceTypesToBrowse
         
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
@@ -307,8 +186,8 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
         print("[BonjourDiscoveryV2] Stopping service type discovery.")
         typeBrowser?.stop()
         typeBrowser = nil
-        fallbackTimer?.invalidate()
-        fallbackTimer = nil
+        timeoutTask?.cancel()
+        timeoutTask = nil
         for b in fallbackBrowsers {
             b.cancel()
         }
@@ -350,7 +229,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     }
     
     private func handleInstanceResults(_ results: Set<NWBrowser.Result>, forType type: String, domain: String) {
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self = self else { return }
             
             var newInstances: [DiscoveredServiceV2] = []
@@ -426,7 +305,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
                     
                     let addresses = Self.resolveHostToIPs(resolvedHost)
                     
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         self.resolvedService = ResolvedServiceInfoV2(
                             name: service.name,
                             type: service.type,
@@ -443,7 +322,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
                 print("[BonjourDiscoveryV2] Resolution failed: \(error)")
                 connection.cancel()
                 self.activeConnection = nil
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self.resolveError = "Resolution failed: \(error.localizedDescription)"
                     self.isSearching = false
                 }
@@ -475,7 +354,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     
     static func friendlyName(for rawType: String) -> String? {
         let normalized = rawType.hasSuffix(".") ? rawType : rawType + "."
-        return knownServiceTypesV2[normalized]
+        return commonKnownServiceTypes[normalized]
     }
     
     private static func resolveHostToIPs(_ host: String) -> [String] {
@@ -520,7 +399,7 @@ extension BonjourDiscoveryManagerV2: NetServiceBrowserDelegate {
     
     func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
         print("[BonjourDiscoveryV2] NetServiceBrowser didFind: name='\(service.name)', type='\(service.type)'")
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self = self else { return }
             
             let fullType = "\(service.name).\(service.type)"
