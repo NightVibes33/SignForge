@@ -1456,8 +1456,33 @@ extension SettingsViewController
                 }
                 
             case .networkDiscovery:
-                let discoveryView = BonjourDiscoveryView()
-                // let discoveryView = BonjourDiscoveryViewV2()
+                // Preflight Local Network Permission Check
+                /*
+                Task {
+                    let hasPermission = await LocalNetworkPermissionChecker.shared.checkPermission()
+                    if hasPermission {
+                        let discoveryView = BonjourDiscoveryView()
+//                        let discoveryView = BonjourDiscoveryViewV2()
+                        let vc = UIHostingController(rootView: discoveryView)
+                        self.prepare(for: UIStoryboardSegue(identifier: "networkDiscovery", source: self, destination: vc), sender: nil)
+                    } else {
+                        let alert = UIAlertController(
+                            title: "Local Network Access Required",
+                            message: "SideStore needs local network access to search for AltServer. Please enable it in Settings.",
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                            }
+                        })
+                        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+                        self.present(alert, animated: true, completion: nil)
+                    }
+                }
+                */
+//                let discoveryView = BonjourDiscoveryView()
+                let discoveryView = BonjourDiscoveryViewV2()
                 let vc = UIHostingController(rootView: discoveryView)
                 self.prepare(for: UIStoryboardSegue(identifier: "networkDiscovery", source: self, destination: vc), sender: nil)
                 

@@ -59,6 +59,20 @@ struct BonjourDiscoveryView: View {
                     .font(.subheadline.weight(.medium))
             }
             .padding(.top, 4)
+            
+            VStack(spacing: 8) {
+                Text("Ensure **Local Network Access** is provided otherwise this function may not work as intended since it is based on L N A...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                Text("**Settings -> apps -> SideStore -> LocalNetworkAccess = toggle on**")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 12)
+            .padding(.horizontal, 24)
         }
     }
     
@@ -135,6 +149,20 @@ struct ServiceTypesView: View {
                     .font(.subheadline.weight(.medium))
             }
             .padding(.top, 4)
+            
+            VStack(spacing: 8) {
+                Text("Ensure **Local Network Access** is provided otherwise this function may not work as intended since it is based on L N A...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                Text("**Settings -> apps -> SideStore -> LocalNetworkAccess = toggle on**")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 12)
+            .padding(.horizontal, 24)
         }
     }
     
@@ -249,6 +277,20 @@ struct ServiceInstancesView: View {
                     .font(.subheadline.weight(.medium))
             }
             .padding(.top, 4)
+            
+            VStack(spacing: 8) {
+                Text("Ensure **Local Network Access** is provided otherwise this function may not work as intended since it is based on L N A...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                Text("**Settings -> apps -> SideStore -> LocalNetworkAccess = toggle on**")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 12)
+            .padding(.horizontal, 24)
         }
     }
     
