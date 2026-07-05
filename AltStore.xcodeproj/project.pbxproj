@@ -640,10 +640,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A8037A012F54661200097AF1 /* libimobiledevice.a in Frameworks */,
 				A8B646012D70C23E00125819 /* MarkdownKit in Frameworks */,
 				A8037A0E2F54664300097AF1 /* libem_proxy_swift.a in Frameworks */,
-				A8036EA82F54644B00097AF1 /* libimobiledevice.a in Frameworks */,
 				A8038ABC2F54684D00097AF1 /* libem_proxy_swift.a in Frameworks */,
 				A8EB89D02F5451C20094BC01 /* KeychainAccess in Frameworks */,
 				A844287D2FE791EA003CC103 /* Minimuxer in Frameworks */,
@@ -1308,12 +1306,9 @@
 			buildRules = (
 			);
 			dependencies = (
-				A85A51FA2F4B4E3E002E2E11 /* PBXTargetDependency */,
 				0ED4AEC92E6DDB2A0039E2C0 /* PBXTargetDependency */,
 				BF66EE842501AE50007EE018 /* PBXTargetDependency */,
 				BF989176250AABF4002ACF50 /* PBXTargetDependency */,
-				A8037A032F54661200097AF1 /* PBXTargetDependency */,
-				A8038ABE2F54684D00097AF1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A8EEC8412F4B146A00F2436D /* AltStore */,
@@ -1395,7 +1390,6 @@
 				BF66EE7D2501AE50007EE018 /* AltStoreCore */,
 				BF58047A246A28F7008AE704 /* SideBackup */,
 				BF989166250AABF3002ACF50 /* AltWidgetExtension */,
-				BF45872A2298D31600BD7491 /* libimobiledevice */,
 				A85A51412F4B4532002E2E11 /* em_proxy-swift */,
 			);
 		};

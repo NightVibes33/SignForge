@@ -8,6 +8,13 @@
 import Foundation
 import Minimuxer
 
+let useIdevice: Bool = {
+    if #available(iOS 17.0, *) {
+        return true
+    }
+    return false
+}()
+
 func bindTunnelConfig() {
     defer { print("[SideStore] bindTunnelConfig() completed") }
 
@@ -18,15 +25,22 @@ func bindTunnelConfig() {
 
     Task { @MainActor in
         let config = TunnelConfig.shared
-        Minimuxer.bindTunnelConfig(
-            TunnelConfigBinding(
-                setDeviceIP: { value in Task { @MainActor in config.deviceIP = value } },
-                setFakeIP: { value in Task { @MainActor in config.fakeIP = value } },
-                setSubnetMask: { value in Task { @MainActor in config.subnetMask = value } },
-                getOverrideFakeIP: { config.overrideFakeIP },
-                setOverrideEffective: { value in Task { @MainActor in config.overrideEffective = value } }
+        if useIdevice {
+            // Set the device IP on the gateway
+            if let ip = config.deviceIP {
+                IdeviceGateway.shared.setDeviceIP(ip)
+            }
+        } else {
+            Minimuxer.shared.bindTunnelConfig(
+                TunnelConfigBinding(
+                    setDeviceIP: { value in Task { @MainActor in config.deviceIP = value } },
+                    setFakeIP: { value in Task { @MainActor in config.fakeIP = value } },
+                    setSubnetMask: { value in Task { @MainActor in config.subnetMask = value } },
+                    getOverrideFakeIP: { config.overrideFakeIP },
+                    setOverrideEffective: { value in Task { @MainActor in config.overrideEffective = value } }
+                )
             )
-        )
+        }
     }
     #endif
 }
@@ -59,23 +73,29 @@ var minimuxerStatus: MinimuxerStatus {
     print("[SideStore] minimuxerStatus = true on simulator")
     return .ready
     #else
-    if AppManager.needsMuxerServicesRestart && (AppManager.muxerRestartError as? MinimuxerError) == .PairingFile {
-        return .invalidPairingFile
-    }
-    
-    let result = Minimuxer.ready()
-    switch result {
-    case .success(let isReady):
-        print("[SideStore] minimuxerStatus = \(isReady)")
-        return isReady ? .ready : .noConnection
-    case .failure(let error):
-        print("[SideStore] minimuxerStatus = false, error: \(error)")
-        if error == .NoConnection {
-            return .noConnection
-        } else if error == .NoVPN {
-            return .noVPN
-        } else {
+    if useIdevice {
+        // Direct gateway approach doesn't require a persistent listener status.
+        // If setup successfully, we are ready to communicate.
+        return .ready
+    } else {
+        if AppManager.needsMuxerServicesRestart && (AppManager.muxerRestartError as? MinimuxerError) == .PairingFile {
             return .invalidPairingFile
+        }
+        
+        let result = Minimuxer.shared.ready()
+        switch result {
+        case .success(let isReady):
+            print("[SideStore] minimuxerStatus = \(isReady)")
+            return isReady ? .ready : .noConnection
+        case .failure(let error):
+            print("[SideStore] minimuxerStatus = false, error: \(error)")
+            if error == .NoConnection {
+                return .noConnection
+            } else if error == .NoVPN {
+                return .noVPN
+            } else {
+                return .invalidPairingFile
+            }
         }
     }
     #endif
@@ -88,7 +108,9 @@ func retargetUsbmuxdAddr() {
     print("[SideStore] retargetUsbmuxdAddr() is no-op on simulator")
     #else
     print("[SideStore] retargetUsbmuxdAddr() invoked")
-    Minimuxer.retargetUsbmuxdAddr()
+    if !useIdevice {
+        Minimuxer.shared.retargetUsbmuxdAddr()
+    }
     #endif
 }
 
@@ -102,14 +124,22 @@ func reinitializePairingData(_ pairingFile: String) throws {
     print("[SideStore] reinitializePairingData(pairingFile) is no-op on simulator")
     #else
     print("[SideStore] reinitializePairingData(pairingFile) invoked")
-    try Minimuxer.reinitializePairingData(pairingFile: pairingFile)
+    if useIdevice {
+        try IdeviceGateway.shared.start(pairingFileContent: pairingFile)
+    } else {
+        try Minimuxer.shared.reinitializePairingData(pairingFile: pairingFile)
+    }
     #endif
 }
 
 func startNetworkMonitoring() {
     #if !targetEnvironment(simulator)
-    bindTunnelConfig()
-    NetworkObserver.shared.start()
+    if useIdevice {
+        // Direct connection monitors connection internally or via URLSession
+    } else {
+        bindTunnelConfig()
+        Minimuxer.network.start()
+    }
     #endif
 }
 
@@ -118,23 +148,29 @@ func minimuxerStart(_ pairingFile: String) throws {
     #if targetEnvironment(simulator)
     print("[SideStore] minimuxerStart(pairingFile) is no-op on simulator")
     #else
-    // refresh config if any
-    bindTunnelConfig()
-    
-    // observe background errors
-    Minimuxer.onBackgroundError = { error in
-        guard let bgError = error as? MinimuxerBackgroundError else { return }
-        if bgError.component == .mounter {
-            print("[SideStore] Minimuxer background error (\(bgError.component)): \(bgError.error), scheduling restart/pairing prompt...")
-            markMuxerServicesNeedsRestart(error: bgError.error)
+    if useIdevice {
+        bindTunnelConfig()
+        print("[SideStore] minimuxerStart(pairingFile) invoked")
+        try IdeviceGateway.shared.start(pairingFileContent: pairingFile)
+    } else {
+        // refresh config if any
+        bindTunnelConfig()
+        
+        // observe background errors
+        Minimuxer.shared.onBackgroundError = { error in
+            guard let bgError = error as? MinimuxerServiceError else { return }
+            if bgError.component == .mounter {
+                print("[SideStore] Minimuxer background error (\(bgError.component)): \(bgError.error), scheduling restart/pairing prompt...")
+                markMuxerServicesNeedsRestart(error: bgError.error)
+            }
         }
+        
+        // observe network route changes (and update device endpoint from vpn(utun))
+        Minimuxer.network.start()
+        
+        print("[SideStore] minimuxerStart(pairingFile) invoked")
+        try Minimuxer.shared.start(pairingFile: pairingFile)
     }
-    
-    // observe network route changes (and update device endpoint from vpn(utun))
-    NetworkObserver.shared.start()
-    
-    print("[SideStore] minimuxerStart(pairingFile) invoked")
-    try Minimuxer.start(pairingFile: pairingFile)
     #endif
 }
 
@@ -144,7 +180,11 @@ func installProvisioningProfiles(_ profileData: Data) throws {
     print("[SideStore] installProvisioningProfiles(profileData) is no-op on simulator")
     #else
     print("[SideStore] installProvisioningProfiles(profileData) invoked")
-    try Minimuxer.installProvisioningProfile(profile: profileData)
+    if useIdevice {
+        try IdeviceGateway.shared.installProvisioningProfile(profile: profileData)
+    } else {
+        try Minimuxer.shared.installProvisioningProfile(profile: profileData)
+    }
     #endif
 }
 
@@ -154,7 +194,11 @@ func removeProvisioningProfile(_ id: String) throws {
     print("[SideStore] removeProvisioningProfile(id) is no-op on simulator")
     #else
     print("[SideStore] removeProvisioningProfile(id) invoked")
-    try Minimuxer.removeProvisioningProfile(id: id)
+    if useIdevice {
+        try IdeviceGateway.shared.removeProvisioningProfile(id: id)
+    } else {
+        try Minimuxer.shared.removeProvisioningProfile(id: id)
+    }
     #endif
 }
 
@@ -164,7 +208,11 @@ func removeApp(_ bundleId: String) throws {
     print("[SideStore] removeApp(bundleId) is no-op on simulator")
     #else
     print("[SideStore] removeApp(bundleId) invoked")
-    try Minimuxer.removeApp(bundleId: bundleId)
+    if useIdevice {
+        try IdeviceGateway.shared.removeApp(bundleId: bundleId)
+    } else {
+        try Minimuxer.shared.removeApp(bundleId: bundleId)
+    }
     #endif
 }
 
@@ -174,7 +222,11 @@ func yeetAppAFC(_ bundleId: String, _ rawBytes: Data) throws {
     print("[SideStore] yeetAppAFC(bundleId, rawBytes) is no-op on simulator")
     #else
     print("[SideStore] yeetAppAFC(bundleId, rawBytes) invoked")
-    try Minimuxer.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
+    if useIdevice {
+        try IdeviceGateway.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
+    } else {
+        try Minimuxer.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
+    }
     #endif
 }
 
@@ -184,7 +236,11 @@ func installIPA(_ bundleId: String) throws {
     print("[SideStore] installIPA(bundleId) is no-op on simulator")
     #else
     print("[SideStore] installIPA(bundleId) invoked")
-    try Minimuxer.installIpa(bundleId: bundleId)
+    if useIdevice {
+        try IdeviceGateway.shared.installIpa(bundleId: bundleId)
+    } else {
+        try Minimuxer.shared.installIpa(bundleId: bundleId)
+    }
     #endif
 }
 
@@ -195,7 +251,11 @@ func fetchUDID() -> String? {
     return "XXXXX-XXXX-XXXXX-XXXX"
     #else
     print("[SideStore] fetchUDID() invoked")
-    return Minimuxer.fetchUDID()
+    if useIdevice {
+        return IdeviceGateway.shared.fetchUDID()
+    } else {
+        return Minimuxer.shared.fetchUDID()
+    }
     #endif
 }
 
@@ -205,7 +265,11 @@ func debugApp(_ appId: String) throws {
     print("[SideStore] debugApp(appId) is no-op on simulator")
     #else
     print("[SideStore] debugApp(appId) invoked")
-    try Minimuxer.debugApp(appId: appId)
+    if useIdevice {
+        try IdeviceGateway.shared.debugApp(appId: appId)
+    } else {
+        try Minimuxer.shared.debugApp(appId: appId)
+    }
     #endif
 }
 
@@ -215,7 +279,11 @@ func attachDebugger(_ pid: UInt32) throws {
     print("[SideStore] attachDebugger(pid) is no-op on simulator")
     #else
     print("[SideStore] attachDebugger(pid) invoked")
-    try Minimuxer.attachDebugger(pid: pid)
+    if useIdevice {
+        try IdeviceGateway.shared.debugProcess(pid: pid)
+    } else {
+        try Minimuxer.shared.attachDebugger(pid: pid)
+    }
     #endif
 }
 
@@ -225,8 +293,12 @@ func startAutoMounter(_ docsPath: String) {
     print("[SideStore] startAutoMounter(docsPath) is no-op on simulator")
     #else
     print("[SideStore] startAutoMounter(docsPath) invoked")
-    Task {
-        await Minimuxer.startAutoMounter(docsPath: docsPath)
+    if useIdevice {
+        // Mounter can be run explicitly if needed
+    } else {
+        Task {
+            await Minimuxer.shared.startAutoMounter(docsPath: docsPath)
+        }
     }
     #endif
 }
@@ -238,14 +310,24 @@ func dumpProfiles(_ docsPath: String) throws -> String {
     return ""
     #else
     print("[SideStore] dumpProfiles(docsPath) invoked")
-    return try Minimuxer.dumpProfiles(docsPath: docsPath)
+    if useIdevice {
+        return try IdeviceGateway.shared.dumpProfiles(docsPath: docsPath)
+    } else {
+        return try Minimuxer.shared.dumpProfiles(docsPath: docsPath)
+    }
     #endif
 }
 
 func minimuxerSetLogging(_ enabled: Bool) {
     defer { print("[SideStore] minimuxerSetLogging(enabled) completed") }
     print("[SideStore] minimuxerSetLogging(enabled) invoked")
-    Minimuxer.setLogging(enabled)
+    #if !targetEnvironment(simulator)
+    if useIdevice {
+        IdeviceGateway.shared.setLogging(enabled)
+    } else {
+        Minimuxer.shared.setLogging(enabled)
+    }
+    #endif
 }
 
 extension Result {
@@ -336,6 +418,12 @@ extension MinimuxerError: @retroactive LocalizedError {
             return NSLocalizedString("Mount failed", comment: "")
         case .RestartAlreadyInProgressError:
             return NSLocalizedString("Restart already in progress", comment: "")
+        case .InvalidVPN:
+            return NSLocalizedString("Invalid VPN configuration", comment: "")
+        case .InvalidPairing:
+            return NSLocalizedString("Invalid pairing configuration", comment: "")
+//        case .bridgeError(let err):
+//            return err.localizedDescription
         }
     }
 
@@ -351,3 +439,132 @@ extension MinimuxerError: @retroactive LocalizedError {
         String(format: NSLocalizedString("Cannot set %@ on the device.", comment: ""), name)
     }
 }
+
+public enum MinimuxerWrapperError: Error, LocalizedError {
+    case profileInstall
+    case restartAlreadyInProgress
+    case pairingFile
+    
+    public var errorDescription: String? {
+        switch self {
+        case .profileInstall:
+            return NSLocalizedString("Unable to manage profiles on the device", comment: "")
+        case .restartAlreadyInProgress:
+            return NSLocalizedString("Restart already in progress", comment: "")
+        case .pairingFile:
+            return NSLocalizedString("Invalid pairing file. Your pairing file either didn't have a UDID, or it wasn't a valid plist. Please use iloader to replace it.", comment: "")
+        }
+    }
+}
+
+extension Error {
+    public var isMinimuxerNoConnection: Bool {
+        return (self as? MinimuxerError) == .NoConnection
+    }
+    public var isMinimuxerNoVPN: Bool {
+        return (self as? MinimuxerError) == .NoVPN
+    }
+    public var isMinimuxerProfileInstall: Bool {
+        return (self as? MinimuxerError) == .ProfileInstall || (self as? MinimuxerWrapperError) == .profileInstall
+    }
+    public var isMinimuxerPairingFile: Bool {
+        return (self as? MinimuxerError) == .PairingFile || (self as? MinimuxerWrapperError) == .pairingFile
+    }
+    public var isMinimuxerRestartInProgress: Bool {
+        return (self as? MinimuxerError) == .RestartAlreadyInProgressError || (self as? MinimuxerWrapperError) == .restartAlreadyInProgress
+    }
+}
+
+func minimuxerRestart() async throws {
+    #if !targetEnvironment(simulator)
+    if useIdevice {
+        return
+    } else {
+        try await Minimuxer.shared.restart()
+    }
+    #endif
+}
+
+public struct MinimuxerPairedDevice: Codable, Sendable {
+    public let name: String
+    public let model: String
+    public let udid: String
+    public let pairingFilePath: String
+    
+    public init(name: String, model: String, udid: String, pairingFilePath: String) {
+        self.name = name
+        self.model = model
+        self.udid = udid
+        self.pairingFilePath = pairingFilePath
+    }
+}
+
+@MainActor
+public final class WirelessPairWrapper {
+    public static let shared = WirelessPairWrapper()
+    
+    private init() {}
+    
+    public var onPinReceived: ((String) -> Void)? {
+        get {
+            #if !targetEnvironment(simulator)
+            return Minimuxer.wirelessPair.onPinReceived
+            #else
+            return nil
+            #endif
+        }
+        set {
+            #if !targetEnvironment(simulator)
+            Minimuxer.wirelessPair.onPinReceived = newValue
+            #endif
+        }
+    }
+    
+    public var onReadyToPair: ((String, Int) -> Void)? {
+        get {
+            #if !targetEnvironment(simulator)
+            return Minimuxer.wirelessPair.onReadyToPair
+            #else
+            return nil
+            #endif
+        }
+        set {
+            #if !targetEnvironment(simulator)
+            Minimuxer.wirelessPair.onReadyToPair = newValue
+            #endif
+        }
+    }
+    
+    public func start(
+        outPath: String,
+        completion: @escaping (Result<MinimuxerPairedDevice, Error>) -> Void
+    ) {
+        #if !targetEnvironment(simulator)
+        Minimuxer.wirelessPair.start(outPath: outPath) { result in
+            switch result {
+            case .success(let device):
+                completion(.success(MinimuxerPairedDevice(
+                    name: device.name,
+                    model: device.model,
+                    udid: device.udid,
+                    pairingFilePath: device.pairingFilePath
+                )))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+        #else
+        completion(.failure(MinimuxerWrapperError.pairingFile))
+        #endif
+    }
+    
+    public func stop() {
+        #if !targetEnvironment(simulator)
+        Minimuxer.wirelessPair.stop()
+        #endif
+    }
+}
+
+@MainActor
+let wirelessPairing = WirelessPairWrapper.shared
+

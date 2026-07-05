@@ -77,3 +77,6 @@ release-notes.md
 
 Dependencies/minimuxer-*/
 .test/
+
+local/
+Dependencies/idevice/

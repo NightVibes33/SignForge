@@ -16,7 +16,6 @@ import Combine
 import WidgetKit
 import AltStoreCore
 import AltSign
-import Minimuxer
 import UniformTypeIdentifiers
 
 extension AppManager
@@ -80,17 +79,19 @@ class AppManager: ObservableObject
         var attempts = 0
         while attempts < 3 {
             do {
-                try await Minimuxer.restart()
+                try await minimuxerRestart()
                 AppManager.needsMuxerServicesRestart = false
                 return
-            } catch MinimuxerError.RestartAlreadyInProgressError {
-                attempts += 1
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
             } catch {
-                throw error
+                if error.isMinimuxerRestartInProgress {
+                    attempts += 1
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                } else {
+                    throw error
+                }
             }
         }
-        throw MinimuxerError.RestartAlreadyInProgressError
+        throw MinimuxerWrapperError.restartAlreadyInProgress
     }
     
     private(set) var updatePatronsResult: Result<Void, Error>?
@@ -1717,13 +1718,13 @@ private extension AppManager
                 completionHandler(.success(installedApp))
 
 
-            case .failure(MinimuxerError.NoConnection):
+            case .failure(let error) where error.isMinimuxerNoConnection:
                 completionHandler(.failure(OperationError.noConnection))
                 
-            case .failure(MinimuxerError.NoVPN):
+            case .failure(let error) where error.isMinimuxerNoVPN:
                 completionHandler(.failure(OperationError.noVPN))
 
-            case .failure(MinimuxerError.ProfileInstall):
+            case .failure(let error) where error.isMinimuxerProfileInstall:
                 let error = minimuxerStatus.operationError ?? OperationError.unknown()
                 completionHandler(.failure(error))
                 
@@ -2410,7 +2411,7 @@ private extension AppManager {
         var isFirstPrompt = true
 
         while true {
-            if (currentError as? MinimuxerError) == .PairingFile {
+            if currentError?.isMinimuxerPairingFile == true {
                 let fm = FileManager.default
                 let documentsPath = fm.documentsDirectory.appendingPathComponent(PairingFileManager.pairingFileName)
                 
@@ -2458,7 +2459,7 @@ private extension AppManager {
                 return
             } catch {
                 currentError = error
-                guard (error as? MinimuxerError) == .PairingFile else {
+                guard error.isMinimuxerPairingFile else {
                     throw error
                 }
             }

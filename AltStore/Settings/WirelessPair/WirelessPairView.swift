@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import Minimuxer
 
 struct WirelessPairView: View {
     @ObservedObject private var manager = WirelessPairManager.shared

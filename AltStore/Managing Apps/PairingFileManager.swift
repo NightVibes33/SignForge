@@ -9,7 +9,6 @@
 import UIKit
 import AltStoreCore
 import UniformTypeIdentifiers
-import Minimuxer
 
 @MainActor
 final class PairingFileManager: NSObject, UIDocumentPickerDelegate {
@@ -77,7 +76,7 @@ final class PairingFileManager: NSObject, UIDocumentPickerDelegate {
                 if let url = url {
                     continuation.resume(returning: url)
                 } else {
-                    continuation.resume(throwing: MinimuxerError.PairingFile)
+                    continuation.resume(throwing: MinimuxerWrapperError.pairingFile)
                 }
             }
         }

@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import Minimuxer
 import SwiftUI
 
 @MainActor
@@ -18,17 +17,17 @@ final class WirelessPairManager: ObservableObject {
     @Published var subStatusText = "Tap Start to advertise this device on the local network."
     @Published var pinCode: String? = nil
     @Published var isAdvertising = false
-    @Published var pairedDevice: WirelessPair.PairedDevice? = nil
+    @Published var pairedDevice: MinimuxerPairedDevice? = nil
     @Published var errorMessage: String? = nil
     @Published var serviceID: String? = nil
     @Published var port: Int? = nil
     
-    private let pairing = WirelessPair()
+    private let pairing = wirelessPairing
     private var startTask: Task<Void, Never>? = nil
     
     private init() {
         // Setup closures once
-        pairing.onReadyToPair = { [weak self] serviceID, port in
+        pairing.onReadyToPair = { [weak self] (serviceID: String, port: Int) in
             Task { @MainActor in
                 guard let self = self else { return }
                 self.serviceID = serviceID
@@ -38,7 +37,7 @@ final class WirelessPairManager: ObservableObject {
             }
         }
         
-        pairing.onPinReceived = { [weak self] pin in
+        pairing.onPinReceived = { [weak self] (pin: String) in
             Task { @MainActor in
                 guard let self = self else { return }
                 self.pinCode = pin
@@ -77,7 +76,7 @@ final class WirelessPairManager: ObservableObject {
         
         let pairingFile = pairingFilePath()
         
-        pairing.start(outPath: pairingFile) { [weak self] result in
+        pairing.start(outPath: pairingFile) { [weak self] (result: Result<MinimuxerPairedDevice, Swift.Error>) in
             Task { @MainActor in
                 guard let self = self else { return }
                 debounceTask.cancel()

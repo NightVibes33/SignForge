@@ -8,7 +8,6 @@
 import Foundation
 import Network
 import AltStoreCore
-import Minimuxer
 
 @objc(SendAppOperation)
 final class SendAppOperation: ResultOperation<()>
@@ -76,7 +75,16 @@ final class SendAppOperation: ResultOperation<()>
             throw OperationError(.appNotFound(name: bundleIdentifier))
         }
         let bytes = Data(data)
-        try yeetAppAFC(bundleIdentifier, bytes)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            Task.detached(priority: .background) {
+                do {
+                    try yeetAppAFC(bundleIdentifier, bytes)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
         self.progress.completedUnitCount += 1
     }
 

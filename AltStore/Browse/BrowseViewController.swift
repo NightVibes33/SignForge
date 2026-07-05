@@ -12,7 +12,6 @@ import CoreData
 import AltStoreCore
 
 import Nuke
-import Minimuxer
 
 class BrowseViewController: UICollectionViewController, PeekPopPreviewing
 {

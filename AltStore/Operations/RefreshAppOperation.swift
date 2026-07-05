@@ -10,7 +10,6 @@ import Foundation
 import CoreData
 import AltStoreCore
 import AltSign
-import Minimuxer
 
 @objc(RefreshAppOperation)
 final class RefreshAppOperation: ResultOperation<InstalledApp>
@@ -62,7 +61,7 @@ final class RefreshAppOperation: ResultOperation<InstalledApp>
             do {
                 try installProvisioningProfiles(p.value.data)
             } catch {
-                throw MinimuxerError.ProfileInstall
+                throw MinimuxerWrapperError.profileInstall
             }
         }
         
