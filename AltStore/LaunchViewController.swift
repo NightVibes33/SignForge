@@ -16,7 +16,7 @@ import UniformTypeIdentifiers
 
 let pairingFileName = "ALTPairingFile.mobiledevicepairing"
 
-final class LaunchViewController: UIViewController {
+final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
     private var didFinishLaunching = false
     private var retries = 0
     private var maxRetries = 3
@@ -82,11 +82,11 @@ final class LaunchViewController: UIViewController {
         
         startNetworkMonitoring()
         
-        guard let pf = fetchPairingFile() else {
-            displayError("Device pairing file not found.")
-            return
+        if let pf = getSavedPairingFile() {
+            start_minimuxer_threads(pf)
+        } else {
+            showPairingPrompt(isRetry: false)
         }
-        start_minimuxer_threads(pf)
         #endif
     }
 
@@ -97,14 +97,131 @@ final class LaunchViewController: UIViewController {
             let loggingEnabled = UserDefaults.standard.isMinimuxerConsoleLoggingEnabled
             minimuxerSetLogging(loggingEnabled)
             try minimuxerStart(pairing_file)
+            
+            // Validate the pairing by trying to fetch the UDID
+            Task {
+                do {
+                    try fetchUDID()
+                } catch {
+                    if error.isMinimuxerPairingFile {
+                        handleInvalidPairingFile(error: error)
+                    } else {
+                        print("[SideStore] fetchUDID failed but not due to invalid pairing: \(error)")
+                    }
+                }
+            }
         } catch {
-            try! FileManager.default.removeItem(at: FileManager.default.documentsDirectory.appendingPathComponent(pairingFileName))
-            displayError("minimuxer failed to start, please restart SideStore. \((error as? LocalizedError)?.failureReason ?? "UNKNOWN ERROR")")
+            if error.isMinimuxerPairingFile {
+                handleInvalidPairingFile(error: error)
+            } else {
+                print("[SideStore] minimuxerStart failed with general error: \(error).")
+                displayError("minimuxer failed to start, please restart SideStore. \((error as? LocalizedError)?.failureReason ?? "UNKNOWN ERROR")")
+            }
         }
         startAutoMounter(documentsDirectory)
     }
 
-    func fetchPairingFile() -> String? { PairingFileManager.shared.fetchPairingFile(presentingVC: self) }
+    func handleInvalidPairingFile(error: Error) {
+        print("[SideStore] Invalid pairing file detected: \(error)")
+        showPairingPrompt(isRetry: true)
+    }
+
+    func getSavedPairingFile() -> String? {
+        let fm = FileManager.default
+        let documentsPath = fm.documentsDirectory.appendingPathComponent(pairingFileName)
+        if fm.fileExists(atPath: documentsPath.path),
+           let contents = try? String(contentsOf: documentsPath), !contents.isEmpty {
+            return contents
+        }
+        if let url = Bundle.main.url(forResource: "ALTPairingFile", withExtension: "mobiledevicepairing"),
+           fm.fileExists(atPath: url.path),
+           let data = fm.contents(atPath: url.path),
+           let contents = String(data: data, encoding: .utf8),
+           !contents.isEmpty, !UserDefaults.standard.isPairingReset { return contents }
+        if let plistString = Bundle.main.object(forInfoDictionaryKey: "ALTPairingFile") as? String,
+           !plistString.isEmpty, !plistString.contains("insert pairing file here"), !UserDefaults.standard.isPairingReset { return plistString }
+        return nil
+    }
+
+    func showPairingPrompt(isRetry: Bool) {
+        let title = isRetry ? NSLocalizedString("Invalid Pairing File", comment: "") : NSLocalizedString("Pairing File", comment: "")
+        let message = isRetry
+            ? NSLocalizedString("The selected pairing file is invalid or not usable. Please select a valid pairing file.", comment: "")
+            : NSLocalizedString("Select the pairing file or select \"Help\" for help.", comment: "")
+        
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Help", comment: ""), style: .default) { _ in
+            if let url = URL(string: "https://docs.sidestore.io/docs/advanced/pairing-file") { UIApplication.shared.open(url) }
+            sleep(2); exit(0)
+        })
+        
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Select File", comment: ""), style: .default) { _ in
+            var types = UTType.types(tag: "plist", tagClass: .filenameExtension, conformingTo: nil)
+            types.append(contentsOf: UTType.types(tag: "mobiledevicepairing", tagClass: .filenameExtension, conformingTo: .data))
+            types.append(.xml)
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: types)
+            picker.delegate = self
+            picker.shouldShowFileExtensions = true
+            self.present(picker, animated: true)
+        })
+        
+        let cancelTitle = isRetry ? NSLocalizedString("Skip", comment: "") : NSLocalizedString("Cancel", comment: "")
+        alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
+            self.showPairingWarningAndProceed()
+        })
+        
+        self.present(alert, animated: true)
+    }
+
+    func showPairingWarningAndProceed() {
+        let warningAlert = UIAlertController(
+            title: "⚠️ " + NSLocalizedString("Pairing Required", comment: ""),
+            message: NSLocalizedString("Without a valid pairing file, operations that require a pairing file (such as installing, refreshing, or resigning apps) will not function.", comment: ""),
+            preferredStyle: .alert
+        )
+        warningAlert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+        self.present(warningAlert, animated: true)
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        let isSecuredURL = url.startAccessingSecurityScopedResource()
+        defer {
+            if isSecuredURL {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        
+        do {
+            print("[LaunchViewController] User picked pairing file from: \(url.path)")
+            let data = try Data(contentsOf: url)
+            guard let pairingString = String(data: data, encoding: .utf8) else {
+                print("[LaunchViewController] Unable to read pairing file")
+                self.showPairingPrompt(isRetry: true)
+                return
+            }
+            let fm = FileManager.default
+            let documentsPath = fm.documentsDirectory.appendingPathComponent(pairingFileName)
+            if fm.fileExists(atPath: documentsPath.path) {
+                try? fm.removeItem(at: documentsPath)
+            }
+            try pairingString.write(to: documentsPath, atomically: true, encoding: .utf8)
+            print("[LaunchViewController] Successfully copied and saved pairing file to: \(documentsPath.path)")
+            UserDefaults.standard.isPairingReset = false
+            
+            self.start_minimuxer_threads(pairingString)
+        } catch {
+            print("[LaunchViewController] Error importing pairing file: \(error)")
+            self.showPairingPrompt(isRetry: true)
+        }
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        self.showPairingPrompt(isRetry: true)
+    }
+
+    func fetchPairingFile() -> String? { getSavedPairingFile() }
 
     func displayError(_ msg: String) {
         print(msg)

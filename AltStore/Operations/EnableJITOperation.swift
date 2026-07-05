@@ -133,7 +133,7 @@ final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>
 
 @available(iOS 17, *)
 func enableJITSideJITServer(serverURL: URL, installedApp: InstalledApp) async throws {
-    guard let udid = fetchUDID() else {
+    guard let udid = try fetchUDID() else {
         throw SideJITServerErrorType.other("Unable to get UDID")
     }
     

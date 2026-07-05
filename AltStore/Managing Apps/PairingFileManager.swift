@@ -92,6 +92,7 @@ final class PairingFileManager: NSObject, UIDocumentPickerDelegate {
         }
 
         do {
+            print("[PairingFile] User picked pairing file from: \(url.path)")
             let data = try Data(contentsOf: url)
             guard let pairingString = String(data: data, encoding: .utf8) else {
                 if completion == nil {
@@ -109,6 +110,7 @@ final class PairingFileManager: NSObject, UIDocumentPickerDelegate {
                 try? fm.removeItem(at: documentsPath)
             }
             try pairingString.write(to: documentsPath, atomically: true, encoding: .utf8)
+            print("[PairingFile] Successfully copied and saved pairing file to: \(documentsPath.path)")
             UserDefaults.standard.isPairingReset = false
             
             if completion == nil {

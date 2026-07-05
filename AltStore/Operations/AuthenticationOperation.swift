@@ -704,7 +704,7 @@ final class AuthenticationOperation: ResultOperation<(ALTTeam, ALTCertificate?, 
     }
     
     private func registerCurrentDevice(for team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTDevice {
-        guard let udid = fetchUDID() else {
+        guard let udid = try fetchUDID() else {
             throw OperationError.unknownUDID
         }
         

@@ -180,11 +180,7 @@ func installProvisioningProfiles(_ profileData: Data) throws {
     print("[SideStore] installProvisioningProfiles(profileData) is no-op on simulator")
     #else
     print("[SideStore] installProvisioningProfiles(profileData) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.installProvisioningProfile(profile: profileData)
-    } else {
-        try Minimuxer.shared.installProvisioningProfile(profile: profileData)
-    }
+    try IdeviceGateway.shared.installProvisioningProfile(profile: profileData)
     #endif
 }
 
@@ -194,11 +190,7 @@ func removeProvisioningProfile(_ id: String) throws {
     print("[SideStore] removeProvisioningProfile(id) is no-op on simulator")
     #else
     print("[SideStore] removeProvisioningProfile(id) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.removeProvisioningProfile(id: id)
-    } else {
-        try Minimuxer.shared.removeProvisioningProfile(id: id)
-    }
+    try IdeviceGateway.shared.removeProvisioningProfile(id: id)
     #endif
 }
 
@@ -208,11 +200,7 @@ func removeApp(_ bundleId: String) throws {
     print("[SideStore] removeApp(bundleId) is no-op on simulator")
     #else
     print("[SideStore] removeApp(bundleId) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.removeApp(bundleId: bundleId)
-    } else {
-        try Minimuxer.shared.removeApp(bundleId: bundleId)
-    }
+    try IdeviceGateway.shared.removeApp(bundleId: bundleId)
     #endif
 }
 
@@ -222,11 +210,7 @@ func yeetAppAFC(_ bundleId: String, _ rawBytes: Data) throws {
     print("[SideStore] yeetAppAFC(bundleId, rawBytes) is no-op on simulator")
     #else
     print("[SideStore] yeetAppAFC(bundleId, rawBytes) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
-    } else {
-        try Minimuxer.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
-    }
+    try IdeviceGateway.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
     #endif
 }
 
@@ -236,26 +220,18 @@ func installIPA(_ bundleId: String) throws {
     print("[SideStore] installIPA(bundleId) is no-op on simulator")
     #else
     print("[SideStore] installIPA(bundleId) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.installIpa(bundleId: bundleId)
-    } else {
-        try Minimuxer.shared.installIpa(bundleId: bundleId)
-    }
+    try IdeviceGateway.shared.installIpa(bundleId: bundleId)
     #endif
 }
 
-func fetchUDID() -> String? {
+func fetchUDID() throws -> String? {
     defer { print("[SideStore] fetchUDID() completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] fetchUDID() is no-op on simulator")
     return "XXXXX-XXXX-XXXXX-XXXX"
     #else
     print("[SideStore] fetchUDID() invoked")
-    if useIdevice {
-        return IdeviceGateway.shared.fetchUDID()
-    } else {
-        return Minimuxer.shared.fetchUDID()
-    }
+    return try Minimuxer.shared.fetchUDID()
     #endif
 }
 
@@ -265,11 +241,7 @@ func debugApp(_ appId: String) throws {
     print("[SideStore] debugApp(appId) is no-op on simulator")
     #else
     print("[SideStore] debugApp(appId) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.debugApp(appId: appId)
-    } else {
-        try Minimuxer.shared.debugApp(appId: appId)
-    }
+    try IdeviceGateway.shared.debugApp(appId: appId)
     #endif
 }
 
@@ -279,11 +251,7 @@ func attachDebugger(_ pid: UInt32) throws {
     print("[SideStore] attachDebugger(pid) is no-op on simulator")
     #else
     print("[SideStore] attachDebugger(pid) invoked")
-    if useIdevice {
-        try IdeviceGateway.shared.debugProcess(pid: pid)
-    } else {
-        try Minimuxer.shared.attachDebugger(pid: pid)
-    }
+    try IdeviceGateway.shared.debugProcess(pid: pid)
     #endif
 }
 
@@ -310,11 +278,7 @@ func dumpProfiles(_ docsPath: String) throws -> String {
     return ""
     #else
     print("[SideStore] dumpProfiles(docsPath) invoked")
-    if useIdevice {
-        return try IdeviceGateway.shared.dumpProfiles(docsPath: docsPath)
-    } else {
-        return try Minimuxer.shared.dumpProfiles(docsPath: docsPath)
-    }
+    return try IdeviceGateway.shared.dumpProfiles(docsPath: docsPath)
     #endif
 }
 
@@ -455,10 +419,19 @@ public enum MinimuxerWrapperError: Error, LocalizedError {
             return NSLocalizedString("Invalid pairing file. Your pairing file either didn't have a UDID, or it wasn't a valid plist. Please use iloader to replace it.", comment: "")
         }
     }
+
+    public var failureReason: String? {
+        return errorDescription
+    }
 }
 
 extension Error {
     public var isMinimuxerNoConnection: Bool {
+        if let gatewayErr = self as? IdeviceGatewayError {
+            if case .noConnection = gatewayErr {
+                return true
+            }
+        }
         return (self as? MinimuxerError) == .NoConnection
     }
     public var isMinimuxerNoVPN: Bool {
@@ -468,6 +441,11 @@ extension Error {
         return (self as? MinimuxerError) == .ProfileInstall || (self as? MinimuxerWrapperError) == .profileInstall
     }
     public var isMinimuxerPairingFile: Bool {
+        if let gatewayErr = self as? IdeviceGatewayError {
+            if case .invalidPairingFile = gatewayErr {
+                return true
+            }
+        }
         return (self as? MinimuxerError) == .PairingFile || (self as? MinimuxerWrapperError) == .pairingFile
     }
     public var isMinimuxerRestartInProgress: Bool {
