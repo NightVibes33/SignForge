@@ -628,7 +628,9 @@ private extension MyAppsViewController
             do
             {
                 let (_, context) = try result.get()
-                try context.save()
+                try context.performAndWait {
+                    try context.save()
+                }
             }
             catch
             {
