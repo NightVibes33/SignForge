@@ -115,7 +115,13 @@ final class PairingFileManager: NSObject, UIDocumentPickerDelegate {
             
             if completion == nil {
                 if let rootVC = UIApplication.shared.windows.first?.rootViewController as? LaunchViewController {
-                    rootVC.start_minimuxer_threads(pairingString)
+                    Task.detached {
+                        do {
+                            try await reinitializePairingData(pairingFile: pairingString)
+                        } catch {
+                            print("[PairingFile] Re-Initializing Pairing Data failed. error: \(error)")
+                        }
+                    }
                 }
             } else {
                 completion?(url)

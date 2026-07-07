@@ -119,6 +119,17 @@ func minimuxerStart(_ pairingFile: String, mountPath: String) async throws {
     #endif
 }
 
+
+func reinitializePairingData(pairingFile: String) async throws {
+    defer { print("[SideStore] reinitializePairingData(pairingFile) completed") }
+    #if targetEnvironment(simulator)
+    print("[SideStore] reinitializePairingData(pairingFile) is no-op on simulator")
+    #else
+    print("[SideStore] reinitializePairingData(pairingFile) invoked")
+    try await Minimuxer.shared.reinitializePairingData(pairingFile: pairingFile)
+    #endif
+}
+
 func installProvisioningProfiles(_ profileData: Data) throws {
     defer { print("[SideStore] installProvisioningProfiles(profileData) completed") }
     #if targetEnvironment(simulator)
@@ -170,14 +181,14 @@ func installIPA(_ bundleId: String) throws {
 }
 
 @discardableResult
-func fetchUDID() throws -> String? {
+func fetchUDID() async throws -> String? {
     defer { print("[SideStore] fetchUDID() completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] fetchUDID() is no-op on simulator")
     return "XXXXX-XXXX-XXXXX-XXXX"
     #else
     print("[SideStore] fetchUDID() invoked")
-    return try Minimuxer.shared.fetchUDID()
+    return try await Minimuxer.shared.fetchUDID()
     #endif
 }
 
@@ -201,17 +212,6 @@ func attachDebugger(_ pid: UInt32) throws {
     #endif
 }
 
-func startAutoMounter(_ docsPath: String) {
-    defer { print("[SideStore] startAutoMounter(docsPath) completed") }
-    #if targetEnvironment(simulator)
-    print("[SideStore] startAutoMounter(docsPath) is no-op on simulator")
-    #else
-    print("[SideStore] startAutoMounter(docsPath) invoked")
-    Task {
-        await Minimuxer.shared.startAutoMounter(docsPath: docsPath)
-    }
-    #endif
-}
 
 func dumpProfiles(_ docsPath: String) throws -> String {
     defer { print("[SideStore] dumpProfiles(docsPath) completed") }
