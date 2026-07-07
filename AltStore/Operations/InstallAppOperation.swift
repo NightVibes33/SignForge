@@ -9,14 +9,14 @@ import UIKit
 import UserNotifications
 import Foundation
 import Network
-import AltStoreCore
+@preconcurrency import AltStoreCore
 import CoreData
 import AltSign
 
 let shortcutURLonDelay = URL(string: "shortcuts://run-shortcut?name=TurnOnDataDelay")!
 
 @objc(InstallAppOperation)
-final class InstallAppOperation: ResultOperation<InstalledApp> {
+final class InstallAppOperation: ResultOperation<InstalledApp>, @unchecked Sendable {
     let context: InstallAppOperationContext
     
     private var didCleanUp = false
@@ -115,7 +115,10 @@ final class InstallAppOperation: ResultOperation<InstalledApp> {
                 do {
                     try await installIPA(installedApp.bundleIdentifier)
                     installing = false
-                    installedApp.refreshedDate = Date()
+                    try await backgroundContext.perform{
+                        installedApp.refreshedDate = Date()
+                        try installedApp.managedObjectContext?.save()
+                    }
                     self.finish(.success(installedApp))
                 } catch let error {
                     installing = false
