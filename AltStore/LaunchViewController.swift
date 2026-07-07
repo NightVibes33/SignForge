@@ -34,47 +34,46 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         guard !didFinishLaunching else { return }
-        Task {
-            startTime = Date()
-            await runLaunchSequence()
-            doPostLaunch()
+        startTime = Date()
+        
+        // spin off the startup sequence
+        Task.detached { [weak self] in
+            await self?.runLaunchSequence()
+            await self?.doPostLaunch()
         }
     }
 
-    private func runLaunchSequence() async {
-        guard retries < maxRetries else { return }
-        retries += 1
-
-        await Task.detached {
-            if !DatabaseManager.shared.isStarted {
-                await withCheckedContinuation { continuation in
-                    DatabaseManager.shared.start { error in
-                        if let error {
-                            Task { await self.handleLaunchError(error, retryCallback: self.runLaunchSequence) }
-                        } else {
-                            Task { await self.finishLaunching() }
-                        }
-                        continuation.resume(returning: ())
+    private nonisolated func runLaunchSequence() async {
+        guard await retries < maxRetries else { return }
+        await MainActor.run{
+            retries += 1
+        }
+        if !DatabaseManager.shared.isStarted {
+            await withCheckedContinuation { continuation in
+                DatabaseManager.shared.start { error in
+                    if let error {
+                        Task { await self.handleLaunchError(error, retryCallback: self.runLaunchSequence) }
+                    } else {
+                        Task { await self.finishLaunching() }
                     }
+                    continuation.resume(returning: ())
                 }
-            } else {
-                await self.finishLaunching()
             }
-        }.value
+        } else {
+            await self.finishLaunching()
+        }
     }
 
-    private func doPostLaunch() {
-        Task.detached { [weak self] in
-            await SideJITManager.shared.checkAndPromptIfNeeded(presentingVC: self)
-            if #available(iOS 17, *), UserDefaults.standard.sidejitenable {
-                await SideJITManager.shared.askForNetwork()
-                print("SideJITServer Enabled")
-            }
+    private nonisolated func doPostLaunch() async {
+        await SideJITManager.shared.checkAndPromptIfNeeded(presentingVC: self)
+        if #available(iOS 17, *), UserDefaults.standard.sidejitenable {
+            await SideJITManager.shared.askForNetwork()
+            print("SideJITServer Enabled")
         }
 
         #if !targetEnvironment(simulator)
         
-        detectAndImportAccountFile()
+        await detectAndImportAccountFile()
         
         if UserDefaults.standard.enableEMPforWireguard {
             startEMProxy(bind_addr: AppConstants.Proxy.serverURL)
@@ -82,48 +81,43 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         
         startNetworkMonitoring()
         
-        if let pf = getSavedPairingFile() {
-            start_minimuxer_threads(pf)
+        if let pf = await getSavedPairingFile() {
+            await start_minimuxer_threads(pf)
         } else {
-            showPairingPrompt(isRetry: false)
+            await showPairingPrompt(isRetry: false)
         }
         #endif
     }
 
-    func start_minimuxer_threads(_ pairing_file: String) {
-        retargetUsbmuxdAddr()
-        let documentsDirectory = FileManager.default.documentsDirectory.absoluteString
+    nonisolated func start_minimuxer_threads(_ pairing_file: String) async {
         do {
             let loggingEnabled = UserDefaults.standard.isMinimuxerConsoleLoggingEnabled
             minimuxerSetLogging(loggingEnabled)
-            try minimuxerStart(pairing_file)
+            try await minimuxerStart(pairing_file, mountPath: FileManager.default.documentsDirectory.absoluteString)
             
             // Validate the pairing by trying to fetch the UDID
-            Task {
-                do {
-                    try fetchUDID()
-                } catch {
-                    if error.isMinimuxerPairingFile {
-                        handleInvalidPairingFile(error: error)
-                    } else {
-                        print("[SideStore] fetchUDID failed but not due to invalid pairing: \(error)")
-                    }
+            do {
+                try await fetchUDID()
+            } catch {
+                if error.isMinimuxerPairingFile {
+                    await handleInvalidPairingFile(error: error)
+                } else {
+                    print("[SideStore] fetchUDID failed but not due to invalid pairing: \(error)")
                 }
             }
         } catch {
             if error.isMinimuxerPairingFile {
-                handleInvalidPairingFile(error: error)
+                await handleInvalidPairingFile(error: error)
             } else {
                 print("[SideStore] minimuxerStart failed with general error: \(error).")
-                displayError("minimuxer failed to start, please restart SideStore. \((error as? LocalizedError)?.failureReason ?? "UNKNOWN ERROR")")
+                await displayError("minimuxer failed to start, please restart SideStore. \((error as? LocalizedError)?.failureReason ?? "UNKNOWN ERROR")")
             }
         }
-        startAutoMounter(documentsDirectory)
     }
 
-    func handleInvalidPairingFile(error: Error) {
+    nonisolated func handleInvalidPairingFile(error: Error) async {
         print("[SideStore] Invalid pairing file detected: \(error)")
-        showPairingPrompt(isRetry: true)
+        await showPairingPrompt(isRetry: true)
     }
 
     func getSavedPairingFile() -> String? {
@@ -143,6 +137,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         return nil
     }
 
+    @MainActor
     func showPairingPrompt(isRetry: Bool) {
         let title = isRetry ? NSLocalizedString("Invalid Pairing File", comment: "") : NSLocalizedString("Pairing File", comment: "")
         let message = isRetry
@@ -210,7 +205,9 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
             print("[LaunchViewController] Successfully copied and saved pairing file to: \(documentsPath.path)")
             UserDefaults.standard.isPairingReset = false
             
-            self.start_minimuxer_threads(pairingString)
+            Task{
+                await self.start_minimuxer_threads(pairingString)
+            }
         } catch {
             print("[LaunchViewController] Error importing pairing file: \(error)")
             self.showPairingPrompt(isRetry: true)
@@ -223,6 +220,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
 
     func fetchPairingFile() -> String? { getSavedPairingFile() }
 
+    @MainActor
     func displayError(_ msg: String) {
         print(msg)
         let alert = UIAlertController(title: "Error launching SideStore", message: msg, preferredStyle: .alert)
