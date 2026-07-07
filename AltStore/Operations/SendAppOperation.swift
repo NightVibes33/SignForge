@@ -79,16 +79,7 @@ final class SendAppOperation: ResultOperation<()>
             throw OperationError(.appNotFound(name: bundleIdentifier))
         }
         let bytes = Data(data)
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            Task.detached(priority: .background) {
-                do {
-                    try yeetAppAFC(bundleIdentifier, bytes)
-                    continuation.resume()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
+        try await yeetAppAFC(bundleIdentifier, bytes)
         self.progress.completedUnitCount += 1
     }
 

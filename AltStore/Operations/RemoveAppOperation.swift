@@ -50,7 +50,7 @@ final class RemoveAppOperation: ResultOperation<InstalledApp>
             throw OperationError.invalidParameters("RemoveAppOperation: installedApp.managedObjectContext is nil")
         }
         
-        try removeApp(resignedBundleIdentifier)
+        try await removeApp(resignedBundleIdentifier)
         
         let backgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
         try await backgroundContext.perform {

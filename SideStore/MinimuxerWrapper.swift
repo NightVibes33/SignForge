@@ -130,53 +130,53 @@ func reinitializePairingData(pairingFile: String) async throws {
     #endif
 }
 
-func installProvisioningProfiles(_ profileData: Data) throws {
+func installProvisioningProfiles(_ profileData: Data) async throws {
     defer { print("[SideStore] installProvisioningProfiles(profileData) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] installProvisioningProfiles(profileData) is no-op on simulator")
     #else
     print("[SideStore] installProvisioningProfiles(profileData) invoked")
-    try Minimuxer.shared.installProvisioningProfile(profile: profileData)
+    try await Minimuxer.shared.installProvisioningProfile(profile: profileData)
     #endif
 }
 
-func removeProvisioningProfile(_ id: String) throws {
+func removeProvisioningProfile(_ id: String) async throws {
     defer { print("[SideStore] removeProvisioningProfile(id) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] removeProvisioningProfile(id) is no-op on simulator")
     #else
     print("[SideStore] removeProvisioningProfile(id) invoked")
-    try Minimuxer.shared.removeProvisioningProfile(id: id)
+    try await Minimuxer.shared.removeProvisioningProfile(id: id)
     #endif
 }
 
-func removeApp(_ bundleId: String) throws {
+func removeApp(_ bundleId: String) async throws {
     defer { print("[SideStore] removeApp(bundleId) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] removeApp(bundleId) is no-op on simulator")
     #else
     print("[SideStore] removeApp(bundleId) invoked")
-    try Minimuxer.shared.removeApp(bundleId: bundleId)
+    try await Minimuxer.shared.removeApp(bundleId: bundleId)
     #endif
 }
 
-func yeetAppAFC(_ bundleId: String, _ rawBytes: Data) throws {
+func yeetAppAFC(_ bundleId: String, _ rawBytes: Data) async throws {
     defer { print("[SideStore] yeetAppAFC(bundleId, rawBytes) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] yeetAppAFC(bundleId, rawBytes) is no-op on simulator")
     #else
     print("[SideStore] yeetAppAFC(bundleId, rawBytes) invoked")
-    try Minimuxer.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
+    try await Minimuxer.shared.yeetAppAfc(bundleId: bundleId, ipaBytes: rawBytes)
     #endif
 }
 
-func installIPA(_ bundleId: String) throws {
+func installIPA(_ bundleId: String) async throws {
     defer { print("[SideStore] installIPA(bundleId) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] installIPA(bundleId) is no-op on simulator")
     #else
     print("[SideStore] installIPA(bundleId) invoked")
-    try Minimuxer.shared.installIpa(bundleId: bundleId)
+    try await Minimuxer.shared.installIpa(bundleId: bundleId)
     #endif
 }
 
@@ -192,36 +192,35 @@ func fetchUDID() async throws -> String? {
     #endif
 }
 
-func debugApp(_ appId: String) throws {
+func debugApp(_ appId: String) async throws {
     defer { print("[SideStore] debugApp(appId) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] debugApp(appId) is no-op on simulator")
     #else
     print("[SideStore] debugApp(appId) invoked")
-    try Minimuxer.shared.debugApp(appId: appId)
+    try await Minimuxer.shared.debugApp(appId: appId)
     #endif
 }
 
-func attachDebugger(_ pid: UInt32) throws {
+func attachDebugger(_ pid: UInt32) async throws {
     defer { print("[SideStore] attachDebugger(pid) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] attachDebugger(pid) is no-op on simulator")
     #else
     print("[SideStore] attachDebugger(pid) invoked")
-    try Minimuxer.shared.attachDebugger(pid: pid)
+    try await Minimuxer.shared.attachDebugger(pid: pid)
     #endif
 }
 
 
-func dumpProfiles(_ docsPath: String) throws -> String {
+func dumpProfiles(_ docsPath: String) async throws -> String {
     defer { print("[SideStore] dumpProfiles(docsPath) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] dumpProfiles(docsPath) is no-op on simulator")
     return ""
     #else
     print("[SideStore] dumpProfiles(docsPath) invoked")
-//    return try Minimuxer.shared.dumpProfiles(docsPath: docsPath)
-    return ""
+    return try await Minimuxer.shared.dumpProfiles(docsPath: docsPath)
     #endif
 }
 

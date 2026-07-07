@@ -54,7 +54,7 @@ final class RefreshAppOperation: ResultOperation<InstalledApp>
         guard let app = self.context.app else { throw OperationError(.appNotFound(name: nil)) }
         for p in profiles {
             do {
-                try installProvisioningProfiles(p.value.data)
+                try await installProvisioningProfiles(p.value.data)
             } catch {
                 throw MinimuxerWrapperError.profileInstall
             }
