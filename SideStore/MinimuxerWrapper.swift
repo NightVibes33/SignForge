@@ -100,17 +100,11 @@ func reinitializePairingData(_ pairingFile: String) async throws {
     #endif
 }
 
-func startNetworkMonitoring() {
-    bindTunnelConfig()
-    #if !targetEnvironment(simulator)
-    Minimuxer.network.start()
-    #endif
-}
-
 func minimuxerStart(_ pairingFile: String, mountPath: String) async throws {
     defer { print("[SideStore] minimuxerStart(pairingFile) completed") }
     #if targetEnvironment(simulator)
     print("[SideStore] minimuxerStart(pairingFile) is no-op on simulator")
+    bindTunnelConfig()
     #else
     bindTunnelConfig()
     Minimuxer.network.start()

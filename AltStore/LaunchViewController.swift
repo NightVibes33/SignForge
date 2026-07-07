@@ -79,8 +79,6 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
             startEMProxy(bind_addr: AppConstants.Proxy.serverURL)
         }
         
-        startNetworkMonitoring()
-        
         if let pf = await getSavedPairingFile() {
             await start_minimuxer_threads(pf)
         } else {
