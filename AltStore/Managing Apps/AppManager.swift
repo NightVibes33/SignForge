@@ -2424,7 +2424,7 @@ private extension AppManager {
                     isFirstPrompt = false
                     print("[PairingFile] Automatically reloading pairing file from disk...")
                     do {
-                        try reinitializePairingData(contents)
+                        try await reinitializePairingData(contents)
                         try await AppManager.restartMuxerServices()
                         return
                     } catch {
@@ -2450,7 +2450,7 @@ private extension AppManager {
                 
                 if let contents = try? String(contentsOf: url), !contents.isEmpty {
                     print("[AppManager] Reloading updated pairing file after user import...")
-                    try? reinitializePairingData(contents)
+                    try? await reinitializePairingData(contents)
                 }
             }
 
