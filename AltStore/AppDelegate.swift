@@ -58,11 +58,21 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         let stackViewAppearance = UIStackView.appearance(whenContainedInInstancesOf: [UINavigationBar.self])
         stackViewAppearance.spacing = -8        // adjust as needed
         
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .medium
+        let dateString = dateFormatter.string(from: Date())
+        let paddingCount = 49 - dateString.count
+        let leftPadding = String(repeating: " ", count: max(0, paddingCount / 2))
+        let rightPadding = String(repeating: " ", count: max(0, paddingCount - leftPadding.count))
+
         consoleLog.startCapturing()
         print("===================================================")
         print("|               App is Starting up                |")
         print("===================================================")
         print("| Console Logger started capturing output streams |")
+        print("===================================================")
+        print("|\(leftPadding)\(dateString)\(rightPadding)|")
         print("===================================================")
         print("\n ")
 
