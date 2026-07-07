@@ -62,22 +62,21 @@ var minimuxerStatus: MinimuxerStatus {
     var status: MinimuxerStatus = .noVPN
     
     Task {
-        do {
-            _ = try await Minimuxer.shared.ready()
-            status = .ready
-        } catch {
-            if let minErr = error as? MinimuxerError {
+        let result = await Minimuxer.shared.isReady
+        switch result {
+            case .success:
+                status = .ready
+            case .failure(let minErr):
                 switch minErr {
-                case .NoVPN, .InvalidVPN:
-                    status = .noVPN
-                case .PairingFile, .InvalidPairing:
-                    status = .invalidPairingFile
-                default:
-                    status = .noConnection
+                    case .noVPN, .invalidVPN:
+                        status = .noVPN
+                    case .pairingFile, .invalidPairing:
+                        status = .invalidPairingFile
+                    case .mount:
+                        status = .noConnection
+                    default:
+                        status = .noConnection
                 }
-            } else {
-                status = .noConnection
-            }
         }
         semaphore.signal()
     }
@@ -236,89 +235,89 @@ extension Result {
 extension MinimuxerError: @retroactive LocalizedError {
     public var failureReason: String? {
         switch self {
-        case .NoDevice:
+        case .noDevice:
             return NSLocalizedString("Cannot fetch the device from the muxer", comment: "")
-        case .NoConnection:
+        case .noConnection:
             return NSLocalizedString("You do not appear to be connected to Wi-Fi or a wired network connection! Please connect to a Wi-Fi or wired connection.", comment: "")
-        case .NoVPN:
-            return NSLocalizedString("Unable to connect to the device. Please make sure LocalDevVPN is enabled and running! If it is connected, replace your pairing with iloader.", comment: "")
-        case .PairingFile:
-            return NSLocalizedString("Invalid pairing file. Your pairing file either didn't have a UDID, or it wasn't a valid plist. Please use iloader to replace it.", comment: "")
-        case .CreateDebug:
+        case .noVPN(let reason):
+            return String(format: NSLocalizedString("Unable to connect to the device via %@ VPN. Please make sure LocalDevVPN is enabled and running! Reason: %@", comment: ""), "LocalDev", reason)
+        case .pairingFile(let proto, let reason):
+            return String(format: NSLocalizedString("Invalid pairing file (%@ protocol): %@. Please use iloader to replace it.", comment: ""), proto.description, reason)
+        case .createDebug:
             return createService(name: "debug")
-        case .LookupApps:
+        case .lookupApps:
             return getFromDevice(name: "installed apps")
-        case .FindApp:
+        case .findApp:
             return getFromDevice(name: "path to the app")
-        case .BundlePath:
+        case .bundlePath:
             return getFromDevice(name: "bundle path")
-        case .MaxPacket:
+        case .maxPacket:
             return setArgument(name: "max packet")
-        case .WorkingDirectory:
+        case .workingDirectory:
             return setArgument(name: "working directory")
-        case .Argv:
+        case .argv:
             return setArgument(name: "argv")
-        case .LaunchSuccess:
+        case .launchSuccess:
             return getFromDevice(name: "launch success")
-        case .Detach:
+        case .detach:
             return NSLocalizedString("Unable to detach from the app's process", comment: "")
-        case .Attach:
+        case .attach:
             return NSLocalizedString("Unable to attach to the app's process", comment: "")
-        case .CreateInstproxy:
+        case .createInstproxy:
             return createService(name: "instproxy")
-        case .CreateAfc:
+        case .createAfc:
             return createService(name: "AFC")
-        case .RwAfc:
+        case .rwAfc:
             return NSLocalizedString("AFC was unable to manage files on the device.", comment: "")
-        case .InstallApp(let message):
+        case .installApp(let message):
             return NSLocalizedString("Unable to install the app: \(message)", comment: "")
-        case .UninstallApp:
+        case .uninstallApp:
             return NSLocalizedString("Unable to uninstall the app", comment: "")
-        case .CreateMisagent:
+        case .createMisagent:
             return createService(name: "misagent")
-        case .ProfileInstall:
+        case .profileInstall:
             return NSLocalizedString("Unable to manage profiles on the device", comment: "")
-        case .ProfileRemove:
+        case .profileRemove:
             return NSLocalizedString("Unable to manage profiles on the device", comment: "")
-        case .CreateLockdown:
+        case .createLockdown:
             return NSLocalizedString("Unable to connect to lockdown", comment: "")
-        case .CreateCoreDevice:
+        case .createCoreDevice:
             return NSLocalizedString("Unable to connect to core device proxy", comment: "")
-        case .CreateSoftwareTunnel:
+        case .createSoftwareTunnel:
             return NSLocalizedString("Unable to create software tunnel", comment: "")
-        case .CreateRemoteServer:
+        case .createRemoteServer:
             return NSLocalizedString("Unable to connect to remote server", comment: "")
-        case .CreateProcessControl:
+        case .createProcessControl:
             return NSLocalizedString("Unable to connect to process control", comment: "")
-        case .GetLockdownValue:
+        case .getLockdownValue:
             return NSLocalizedString("Unable to get value from lockdown", comment: "")
-        case .Connect:
+        case .connect:
             return NSLocalizedString("Unable to connect to TCP port", comment: "")
-        case .Close:
+        case .close:
             return NSLocalizedString("Unable to close TCP port", comment: "")
-        case .XpcHandshake:
+        case .xpcHandshake:
             return NSLocalizedString("Unable to get services from XPC", comment: "")
-        case .NoService:
+        case .noService:
             return NSLocalizedString("Device did not contain service", comment: "")
-        case .InvalidProductVersion:
+        case .invalidProductVersion:
             return NSLocalizedString("Service version was in an unexpected format", comment: "")
-        case .CreateFolder:
+        case .createFolder:
             return NSLocalizedString("Unable to create DDI folder", comment: "")
-        case .DownloadImage:
+        case .downloadImage:
             return NSLocalizedString("Unable to download DDI", comment: "")
-        case .ImageLookup:
+        case .imageLookup:
             return NSLocalizedString("Unable to lookup DDI images", comment: "")
-        case .ImageRead:
+        case .imageRead:
             return NSLocalizedString("Unable to read images to memory", comment: "")
-        case .Mount:
-            return NSLocalizedString("Mount failed", comment: "")
-        case .RestartAlreadyInProgressError:
+        case .mount(let proto, let reason):
+            return String(format: NSLocalizedString("Mount failed (%@ protocol): %@", comment: ""), proto.description, reason)
+        case .restartAlreadyInProgressError:
             return NSLocalizedString("Restart already in progress", comment: "")
-        case .InvalidVPN:
+        case .invalidVPN:
             return NSLocalizedString("Invalid VPN configuration", comment: "")
-        case .InvalidPairing(let type):
-            return NSLocalizedString("Invalid pairing configuration: \(type)", comment: "")
-        case .MuxerNotListening:
+        case .invalidPairing(let proto, let reason):
+            return String(format: NSLocalizedString("Invalid pairing configuration (%@ protocol): %@", comment: ""), proto.description, reason)
+        case .muxerNotListening:
             return NSLocalizedString("Usbmuxd server is not listening on the device", comment: "")
         }
     }
@@ -359,29 +358,29 @@ public enum MinimuxerWrapperError: Error, LocalizedError {
 
 extension Error {
     public var isMinimuxerNoConnection: Bool {
-        if let gatewayErr = self as? IdeviceGatewayError {
-            if case .noConnection = gatewayErr {
-                return true
-            }
-        }
-        return (self as? MinimuxerError) == .NoConnection
+        if let minimuxerErr = self as? MinimuxerError,
+           case .noConnection = minimuxerErr { return true }
+        return false
     }
     public var isMinimuxerNoVPN: Bool {
-        return (self as? MinimuxerError) == .NoVPN
+        if let minimuxerErr = self as? MinimuxerError,
+           case .noVPN = minimuxerErr { return true }
+        return false
     }
     public var isMinimuxerProfileInstall: Bool {
-        return (self as? MinimuxerError) == .ProfileInstall || (self as? MinimuxerWrapperError) == .profileInstall
+        if let minimuxerErr = self as? MinimuxerError,
+           case .profileInstall = minimuxerErr { return true }
+        return (self as? MinimuxerWrapperError) == .profileInstall
     }
     public var isMinimuxerPairingFile: Bool {
-        if let gatewayErr = self as? IdeviceGatewayError {
-            if case .invalidPairingFile = gatewayErr {
-                return true
-            }
-        }
-        return (self as? MinimuxerError) == .PairingFile || (self as? MinimuxerWrapperError) == .pairingFile
+        if let minimuxerErr = self as? MinimuxerError,
+           case .pairingFile = minimuxerErr { return true }
+        return (self as? MinimuxerWrapperError) == .pairingFile
     }
     public var isMinimuxerRestartInProgress: Bool {
-        return (self as? MinimuxerError) == .RestartAlreadyInProgressError || (self as? MinimuxerWrapperError) == .restartAlreadyInProgress
+        if let minimuxerErr = self as? MinimuxerError,
+           case .restartAlreadyInProgressError = minimuxerErr { return true }
+        return (self as? MinimuxerWrapperError) == .restartAlreadyInProgress
     }
 }
 
