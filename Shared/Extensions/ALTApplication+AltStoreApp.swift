@@ -6,6 +6,7 @@
 //  Copyright © 2020 Riley Testut. All rights reserved.
 //
 
+import Foundation
 import AltSign
 
 extension ALTApplication

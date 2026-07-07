@@ -6,6 +6,7 @@
 //  Copyright © 2020 Riley Testut. All rights reserved.
 //
 
+import UIKit
 import Foundation
 import CryptoKit
 import AltStoreCore

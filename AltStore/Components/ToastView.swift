@@ -6,6 +6,7 @@
 //  Copyright © 2019 Riley Testut. All rights reserved.
 //
 
+import UIKit
 import AltStoreCore
 
 extension TimeInterval

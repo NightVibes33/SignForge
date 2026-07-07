@@ -5,6 +5,8 @@
 //  Created by Riley Testut on 6/19/19.
 //  Copyright © 2019 Riley Testut. All rights reserved.
 //
+import UIKit
+import UserNotifications
 import Foundation
 import Network
 import AltStoreCore
