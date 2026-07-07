@@ -31,32 +31,27 @@ final class RefreshAppOperation: ResultOperation<InstalledApp>
     {
         super.main()
         
-        do
-        {
-            if let error = self.context.error {
-                debugLog("RefreshAppOperation.main: ERROR: self.context.app = \(self.context.app!); self.context.error is \(error)")
-                return self.finish(.failure(error))
-            }
-            
-            guard let profiles = self.context.provisioningProfiles else {
-                return self.finish(.failure(OperationError.invalidParameters("RefreshAppOperation.main: self.context.provisioningProfiles is nil")))
-            }
-            
-            guard let app = self.context.app else { return self.finish(.failure(OperationError(.appNotFound(name: nil)))) }
-            
-            Task { [weak self] in
-                guard let self else { return }
-                do {
-                    let installed = try await self.refresh(app: app, profiles: profiles)
-                    self.finish(.success(installed))
-                } catch {
-                    self.finish(.failure(error))
-                }
+        if let error = self.context.error {
+            self.finish(.failure(error))
+            return
+        }
+        
+        Task {
+            do {
+                let installed = try await self.execute()
+                self.finish(.success(installed))
+            } catch {
+                self.finish(.failure(error))
             }
         }
     }
     
-    private func refresh(app: ALTApplication, profiles: [String: ALTProvisioningProfile]) async throws -> InstalledApp {
+    private nonisolated func execute() async throws -> InstalledApp {
+        guard let profiles = self.context.provisioningProfiles else {
+            throw OperationError.invalidParameters("RefreshAppOperation.main: self.context.provisioningProfiles is nil")
+        }
+        
+        guard let app = self.context.app else { throw OperationError(.appNotFound(name: nil)) }
         for p in profiles {
             do {
                 try installProvisioningProfiles(p.value.data)

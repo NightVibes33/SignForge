@@ -55,13 +55,9 @@ final class DownloadAppOperation: ResultOperation<ALTApplication> {
         // Set _after_ checking self.context.error to prevent overwriting localized failure for previous errors.
         self.localizedFailure = String(format: NSLocalizedString("%@ could not be downloaded.", comment: ""), self.appName)
 
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             do {
-                let appVal = await self.$app.perform {_ in 
-                    self.app
-                }
-                try await self.performAppValidationAndDownload(app: appVal)
+                try await self.execute()
             } catch {
                 self.finish(.failure(error))
             }
@@ -80,7 +76,11 @@ final class DownloadAppOperation: ResultOperation<ALTApplication> {
         super.finish(result)
     }
     
-    private func performAppValidationAndDownload(app: AppProtocol) async throws {
+    private nonisolated func execute() async throws {
+        let app = await self.$app.perform {_ in 
+            self.app
+        }
+        
         do {
             var appVersion: AppVersion?
 

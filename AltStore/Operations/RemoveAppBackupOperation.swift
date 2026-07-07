@@ -36,22 +36,20 @@ final class RemoveAppBackupOperation: ResultOperation<Void>
             return
         }
         
-        guard let installedApp = self.context.installedApp else {
-            return self.finish(.failure(OperationError.invalidParameters("RemoveAppBackupOperation.main: self.context.installedApp is nil")))
-        }
-        
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await self.removeBackup(for: installedApp)
-                self.finish(.success(()))
-            } catch {
-                self.finish(.failure(error))
-            }
-        }
+        Task {
+             do {
+                 try await self.execute()
+                 self.finish(.success(()))
+             } catch {
+                 self.finish(.failure(error))
+             }
+         }
     }
     
-    private func removeBackup(for installedApp: InstalledApp) async throws {
+    private nonisolated func execute() async throws {
+        guard let installedApp = self.context.installedApp else {
+            throw OperationError.invalidParameters("RemoveAppBackupOperation.main: self.context.installedApp is nil")
+        }
         let backupDirectoryURL: URL? = await installedApp.managedObjectContext?.perform {
             self.backupDirectoryURL(for: installedApp)
         }

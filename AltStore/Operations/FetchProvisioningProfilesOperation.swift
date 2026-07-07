@@ -30,8 +30,7 @@ class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioni
     override func main() {
         super.main()
         
-        Task.detached { [weak self] in
-            guard let self else { return }
+        Task {
             do {
                 let profiles = try await self.execute()
                 self.finish(.success(profiles))
@@ -41,7 +40,7 @@ class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioni
         }
     }
     
-    private func execute() async throws -> [String: ALTProvisioningProfile] {
+    private nonisolated func execute() async throws -> [String: ALTProvisioningProfile] {
         if let error = self.context.error {
             throw error
         }

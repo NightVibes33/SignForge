@@ -35,10 +35,9 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>
             return
         }
         
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             do {
-                let result = try await self.deactivate()
+                let result = try await self.execute()
                 self.finish(.success(result))
             } catch {
                 self.finish(.failure(error))
@@ -46,7 +45,7 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>
         }
     }
     
-    private func deactivate() async throws -> InstalledApp {
+    private nonisolated func execute() async throws -> InstalledApp {
         let backgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
         try await backgroundContext.perform {
             _ = try self.performDeactivate(in: backgroundContext)

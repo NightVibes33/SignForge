@@ -26,22 +26,9 @@ final class RemoveAppOperation: ResultOperation<InstalledApp>
     {
         super.main()
         
-        if let error = self.context.error
-        {
-            self.finish(.failure(error))
-            return
-        }
-        
-        guard let installedApp = self.context.installedApp else {
-            return self.finish(.failure(OperationError.invalidParameters("RemoveAppOperation.main: self.context.installedApp is nil")))
-        }
-        
-        debugLog("Removing app \(self.context.bundleIdentifier)...")
-        
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             do {
-                let result = try await self.remove(installedApp)
+                let result = try await self.execute()
                 self.finish(.success(result))
             } catch {
                 self.finish(.failure(error))
@@ -49,7 +36,13 @@ final class RemoveAppOperation: ResultOperation<InstalledApp>
         }
     }
     
-    private func remove(_ installedApp: InstalledApp) async throws -> InstalledApp {
+    private nonisolated func execute() async throws -> InstalledApp {
+        if let error = self.context.error {
+            throw error
+        }
+        guard let installedApp = self.context.installedApp else {
+            throw OperationError.invalidParameters("RemoveAppOperation.main: self.context.installedApp is nil")
+        }
         let resignedBundleIdentifier = await installedApp.managedObjectContext?.perform {
             self.resignedBundleIdentifier(for: installedApp)
         }

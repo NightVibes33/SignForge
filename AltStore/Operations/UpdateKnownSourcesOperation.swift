@@ -46,10 +46,9 @@ class UpdateKnownSourcesOperation: ResultOperation<([KnownSource], [KnownSource]
     {
         super.main()
         
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             do {
-                let result = try await self.fetchKnownSources()
+                let result = try await self.execute()
                 self.finish(.success(result))
             } catch {
                 self.finish(.failure(error))
@@ -57,7 +56,7 @@ class UpdateKnownSourcesOperation: ResultOperation<([KnownSource], [KnownSource]
         }
     }
     
-    private func fetchKnownSources() async throws -> ([KnownSource], [KnownSource])
+    private nonisolated func execute() async throws -> ([KnownSource], [KnownSource])
     {
         let (data, response) = try await self.session.data(from: .sources)
         

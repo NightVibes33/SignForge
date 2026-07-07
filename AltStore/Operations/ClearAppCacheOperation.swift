@@ -52,21 +52,27 @@ class ClearAppCacheOperation: ResultOperation<Void> {
         
         self.clearNukeCache()
         
-        Task { [weak self] in
-            guard let self else { return }
-            var allErrors = [Error]()
-            
-            do { try await self.clearTemporaryDirectory() }
-            catch { allErrors.append(error) }
-            
-            do { try await self.removeUninstalledAppBackupDirectories() }
-            catch { allErrors.append(error) }
-            
-            if allErrors.isEmpty {
+        Task {
+            do {
+                try await self.execute()
                 self.finish(.success(()))
-            } else {
-                self.finish(.failure(OperationError.cacheClearError(errors: allErrors.map { $0.localizedDescription })))
+            } catch {
+                self.finish(.failure(error))
             }
+        }
+    }
+
+    private nonisolated func execute() async throws {
+        var allErrors = [Error]()
+        
+        do { try await self.clearTemporaryDirectory() }
+        catch { allErrors.append(error) }
+        
+        do { try await self.removeUninstalledAppBackupDirectories() }
+        catch { allErrors.append(error) }
+        
+        if !allErrors.isEmpty {
+            throw OperationError.cacheClearError(errors: allErrors.map { $0.localizedDescription })
         }
     }
     

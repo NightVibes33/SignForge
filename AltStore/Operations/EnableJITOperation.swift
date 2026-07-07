@@ -42,8 +42,7 @@ final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>
     {
         super.main()
         
-        Task.detached { [weak self] in
-            guard let self else { return }
+        Task {
             do {
                 try await self.execute()
                 self.finish(.success(()))
@@ -53,7 +52,7 @@ final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>
         }
     }
     
-    private func execute() async throws {
+    private nonisolated func execute() async throws {
         if let error = self.context.error
         {
             throw error

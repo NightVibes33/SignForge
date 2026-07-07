@@ -88,77 +88,74 @@ final class BackgroundRefreshAppsOperation: ResultOperation<[String: Result<Inst
         if UserDefaults.standard.enableEMPforWireguard {
             startEMProxy(bind_addr: AppConstants.Proxy.serverURL)
         }
-        retargetUsbmuxdAddr()
-        let documentsDirectory = FileManager.default.documentsDirectory.absoluteString
-        do {
-            // enable minimuxer console logging only if enabled in settings
-            let isMinimuxerConsoleLoggingEnabled = UserDefaults.standard.isMinimuxerConsoleLoggingEnabled
-            minimuxerSetLogging(isMinimuxerConsoleLoggingEnabled)
-
-            try minimuxerStart(
-                try String(contentsOf: FileManager.default.documentsDirectory.appendingPathComponent("\(pairingFileName)"))
-            )
-        } catch {
-            self.finish(.failure(error))
-        }
-        if #available(iOS 17, *) {
-            // TODO: iOS 17 and above have a new JIT implementation that is completely broken in SideStore :(
-        } else {
-            startAutoMounter(documentsDirectory)
-        }
-
-        self.managedObjectContext.perform {
-            self.performBackgroundRefresh()
-        }
-    }
-    
-    private func performBackgroundRefresh() {
-        self.debugLog("Refreshing apps in background: \(self.installedApps.map(\.bundleIdentifier))")
         
-        self.startListeningForRunningApps()
-        
-        // Wait for 2 seconds (1 now, 1 later in FindServerOperation) to:
-        // a) give us time to discover AltServers
-        // b) give other processes a chance to respond to requestAppState notification
         Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            await self.managedObjectContext.perform {
-                self.triggerAppManagerRefresh()
+            do {
+                let results = try await self.execute()
+                self.finish(.success(results))
+            } catch {
+                self.finish(.failure(error))
             }
         }
     }
-    
-    private func triggerAppManagerRefresh() {
-        let filteredApps = self.installedApps.filter { !self.runningApplications.contains($0.bundleIdentifier) }
+
+    private nonisolated func execute() async throws -> [String: Result<InstalledApp, Error>] {
+        let documentsDirectory = FileManager.default.documentsDirectory.absoluteString
+        
+        // enable minimuxer console logging only if enabled in settings
+        let isMinimuxerConsoleLoggingEnabled = UserDefaults.standard.isMinimuxerConsoleLoggingEnabled
+        minimuxerSetLogging(isMinimuxerConsoleLoggingEnabled)
+
+        try await minimuxerStart(
+            try String(contentsOf: FileManager.default.documentsDirectory.appendingPathComponent("\(pairingFileName)")),
+            mountPath: documentsDirectory
+        )
+        
+        if #available(iOS 17, *) {
+            // TODO: iOS 17 and above have a new JIT implementation that is completely broken in SideStore :(
+        }
+
+        await self.managedObjectContext.perform {
+            self.startListeningForRunningApps()
+        }
+
+        // Wait for 1 second (1 now, 1 later in FindServerOperation) to:
+        // a) give us time to discover AltServers
+        // b) give other processes a chance to respond to requestAppState notification
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+
+        let filteredApps = await self.managedObjectContext.perform {
+            return self.installedApps.filter { !self.runningApplications.contains($0.bundleIdentifier) }
+        }
+
         if !self.runningApplications.isEmpty {
             self.verboseLog("Skipping refreshing running apps: \(self.runningApplications)")
         }
-        
-        let group = AppManager.shared.refresh(filteredApps, presentingViewController: nil)
-        group.beginInstallationHandler = { (installedApp) in
-            guard installedApp.bundleIdentifier == StoreApp.altstoreAppID else { return }
-            
-            // We're starting to install AltStore, which means the app is about to quit.
-            // So, we schedule a "refresh successful" local notification to be displayed after a delay,
-            // but if the app is still running, we cancel the notification.
-            // Then, we schedule another notification and repeat the process.
-            
-            // Also since AltServer has already received the app, it can finish installing even if we're no longer running in background.
-            
-            if let error = group.context.error {
-                self.scheduleFinishedRefreshingNotification(for: .failure(error))
-            } else {
-                var results = group.results
-                results[installedApp.bundleIdentifier] = .success(installedApp)
+
+        return try await self.refresh(filteredApps)
+    }
+
+    private func refresh(_ apps: [InstalledApp]) async throws -> [String: Result<InstalledApp, Error>] {
+        return try await withCheckedThrowingContinuation { continuation in
+            let group = AppManager.shared.refresh(apps, presentingViewController: nil)
+            group.beginInstallationHandler = { [weak self] (installedApp) in
+                guard let self = self else { return }
+                guard installedApp.bundleIdentifier == StoreApp.altstoreAppID else { return }
                 
-                self.scheduleFinishedRefreshingNotification(for: .success(results))
+                if let error = group.context.error {
+                    self.scheduleFinishedRefreshingNotification(for: .failure(error))
+                } else {
+                    var results = group.results
+                    results[installedApp.bundleIdentifier] = .success(installedApp)
+                    self.scheduleFinishedRefreshingNotification(for: .success(results))
+                }
             }
+            group.completionHandler = { (results) in
+                continuation.resume(returning: results)
+            }
+            
+            self.progress.addChild(group.progress, withPendingUnitCount: 1)
         }
-        group.completionHandler = { (results) in
-            self.finish(.success(results))
-        }
-        
-        self.progress.addChild(group.progress, withPendingUnitCount: 1)
     }
     
     private func startListeningForRunningApps() {

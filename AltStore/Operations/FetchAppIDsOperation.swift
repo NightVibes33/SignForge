@@ -29,23 +29,9 @@ final class FetchAppIDsOperation: ResultOperation<([AppID], NSManagedObjectConte
     {
         super.main()
         
-        if let error = self.context.error
-        {
-            self.finish(.failure(error))
-            return
-        }
-        
-        guard
-            let team = self.context.team,
-            let session = self.context.session
-        else {
-            return self.finish(.failure(OperationError.invalidParameters("FetchAppIDsOperation.main: self.context.team or self.context.session is nil")))
-        }
-        
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             do {
-                let result = try await self.fetchAndSyncAppIDs(team: team, session: session)
+                let result = try await self.execute()
                 self.finish(.success(result))
             } catch {
                 self.finish(.failure(error))
@@ -53,7 +39,17 @@ final class FetchAppIDsOperation: ResultOperation<([AppID], NSManagedObjectConte
         }
     }
     
-    private func fetchAndSyncAppIDs(team: ALTTeam, session: ALTAppleAPISession) async throws -> ([AppID], NSManagedObjectContext) {
+    private nonisolated func execute() async throws -> ([AppID], NSManagedObjectContext) {
+        if let error = self.context.error {
+            throw error
+        }
+        guard
+            let team = self.context.team,
+            let session = self.context.session
+        else {
+            throw OperationError.invalidParameters("FetchAppIDsOperation.main: self.context.team or self.context.session is nil")
+        }
+        
         let fetchedAppIDs: [ALTAppID] = try await withCheckedThrowingContinuation { continuation in
             ALTAppleAPI.shared.fetchAppIDs(for: team, session: session) { appIDs, error in
                 continuation.resume(with: Result(appIDs, error))

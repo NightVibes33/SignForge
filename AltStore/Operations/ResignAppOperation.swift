@@ -25,8 +25,7 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
     override func main() {
         super.main()
         
-        Task.detached { [weak self] in
-            guard let self else { return }
+        Task {
             do {
                 let resignedApplication = try await self.execute()
                 self.finish(.success(resignedApplication))
@@ -36,7 +35,7 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
         }
     }
     
-    private func execute() async throws -> ALTApplication {
+    private nonisolated func execute() async throws -> ALTApplication {
         if let error = self.context.error {
             throw error
         }

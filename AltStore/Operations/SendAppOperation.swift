@@ -26,15 +26,24 @@ final class SendAppOperation: ResultOperation<()>
     override func main() {
         super.main()
 
+        Task {
+            do {
+                try await self.execute()
+                self.finish(.success(()))
+            } catch {
+                self.finish(.failure(error))
+            }
+        }
+    }
+
+    private nonisolated func execute() async throws {
         if let error = self.context.error {
-            return self.finish(.failure(error))
+            throw error
         }
 
         guard let resignedApp = self.context.resignedApp else {
-            return self.finish(.failure(OperationError.invalidParameters("SendAppOperation.main: self.resignedApp is nil")))
+            throw OperationError.invalidParameters("SendAppOperation.main: self.resignedApp is nil")
         }
-
-        let shortcutURLoff = URL(string: "shortcuts://run-shortcut?name=TurnOffData")!
 
         let app = AnyApp(name: resignedApp.name, bundleIdentifier: self.context.bundleIdentifier, url: resignedApp.fileURL, storeApp: nil)
         let fileURL = InstalledApp.refreshedIPAURL(for: app)
@@ -48,25 +57,19 @@ final class SendAppOperation: ResultOperation<()>
         } else {
             context.shouldTurnOffData = false
         }
-
-        Task { [weak self] in
-            guard let self else { return }
-            if self.context.shouldTurnOffData {
-                // Wait for Shortcut to Finish Before Proceeding
-                await withCheckedContinuation { continuation in
-                    UIApplication.shared.open(shortcutURLoff, options: [:]) { _ in
-                        self.debugLog("Shortcut finished execution. Proceeding with file transfer.")
-                        continuation.resume()
-                    }
+        
+        if self.context.shouldTurnOffData {
+            // Wait for Shortcut to Finish Before Proceeding
+            await withCheckedContinuation { continuation in
+                let shortcutURLoff = URL(string: "shortcuts://run-shortcut?name=TurnOffData")!
+                UIApplication.shared.open(shortcutURLoff, options: [:]) { _ in
+                    self.debugLog("Shortcut finished execution. Proceeding with file transfer.")
+                    continuation.resume()
                 }
             }
-            do {
-                try await self.processFile(at: fileURL, for: app.bundleIdentifier)
-                self.finish(.success(()))
-            } catch {
-                self.finish(.failure(error))
-            }
         }
+        
+        try await self.processFile(at: fileURL, for: app.bundleIdentifier)
     }
 
     private func processFile(at fileURL: URL, for bundleIdentifier: String) async throws {

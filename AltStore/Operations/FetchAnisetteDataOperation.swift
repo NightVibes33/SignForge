@@ -36,37 +36,38 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>, WebSoc
     override func main() {
         super.main()
         
-        if let error = self.context.error {
-            self.finish(.failure(error))
-            return
-        }
-        
-        // TODO: Pass in proper view context to show the Toast messages
-        let viewContext = context.presentingViewController
-        
-        Task { [weak self] in
-            guard let self else { return }
+        Task {
             do {
-                let urlString = try await self.getAnisetteServerUrl(viewContext)
-
-                // set as preferred
-                UserDefaults.standard.menuAnisetteURL = urlString
-                let url = URL(string: urlString)
-                self.url = url
-                self.verboseLog("Anisette URL: \(self.url!.absoluteString)")
-
-                if let identifier = Keychain.shared.identifier,
-                   let adiPb = Keychain.shared.adiPb {
-                    try await self.fetchAnisetteV3(identifier, adiPb)
-                } else {
-                    try await self.provision()
-                }
+                try await self.execute()
             } catch {
                 self.finish(.failure(error))
             }
         }
     }
-    
+
+    private nonisolated func execute() async throws {
+        if let error = self.context.error {
+            throw error
+        }
+        
+        // TODO: Pass in proper view context to show the Toast messages
+        let viewContext = self.context.presentingViewController
+        
+        let urlString = try await self.getAnisetteServerUrl(viewContext)
+
+        // set as preferred
+        UserDefaults.standard.menuAnisetteURL = urlString
+        let url = URL(string: urlString)
+        self.url = url
+        self.verboseLog("Anisette URL: \(self.url!.absoluteString)")
+
+        if let identifier = Keychain.shared.identifier,
+           let adiPb = Keychain.shared.adiPb {
+            try await self.fetchAnisetteV3(identifier, adiPb)
+        } else {
+            try await self.provision()
+        }
+    }
 
     private func getAnisetteServerUrl(_ viewContext: UIViewController?) async throws -> String {
         let serverUrls = UserDefaults.standard.menuAnisetteServersList
