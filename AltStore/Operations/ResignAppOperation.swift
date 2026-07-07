@@ -131,7 +131,7 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
         var additionalValues: [String: Any] = [Bundle.Info.urlTypes: allURLSchemes]
 
         if app.isAltStoreApp {
-            guard let udid = try fetchUDID() else { throw OperationError.unknownUDID }
+            guard let udid = try await fetchUDID() else { throw OperationError.unknownUDID }
             guard Bundle.main.object(forInfoDictionaryKey: Bundle.Info.devicePairingString) is String else { throw OperationError.unknownUDID }
             additionalValues[Bundle.Info.devicePairingString] = "<insert pairing file here>"
             additionalValues[Bundle.Info.deviceID] = udid
@@ -151,7 +151,7 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
             } else {
                 // The embedded certificate + certificate identifier are already in app bundle, no need to update them.
             }
-        } else if infoDictionary.keys.contains(Bundle.Info.deviceID), let udid = try fetchUDID() {
+        } else if infoDictionary.keys.contains(Bundle.Info.deviceID), let udid = try await fetchUDID() {
             // There is an ALTDeviceID entry, so assume the app is using AltKit and replace it with the device's UDID.
             additionalValues[Bundle.Info.deviceID] = udid
             additionalValues[Bundle.Info.serverID] = UserDefaults.standard.preferredServerID
