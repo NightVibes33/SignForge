@@ -111,14 +111,16 @@ final class InstallAppOperation: ResultOperation<InstalledApp> {
                 self.handleSelfReinstallationAndPrompt(for: installedApp, installing: &installing)
             }
             
-            do {
-                try installIPA(installedApp.bundleIdentifier)
-                installing = false
-                installedApp.refreshedDate = Date()
-                self.finish(.success(installedApp))
-            } catch let error {
-                installing = false
-                self.finish(.failure(error))
+            Task {
+                do {
+                    try await installIPA(installedApp.bundleIdentifier)
+                    installing = false
+                    installedApp.refreshedDate = Date()
+                    self.finish(.success(installedApp))
+                } catch let error {
+                    installing = false
+                    self.finish(.failure(error))
+                }
             }
         } catch {
             self.finish(.failure(error))

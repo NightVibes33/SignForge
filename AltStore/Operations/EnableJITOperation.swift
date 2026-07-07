@@ -9,7 +9,7 @@
 import UIKit
 import Combine
 import UniformTypeIdentifiers
-import AltStoreCore
+@preconcurrency import AltStoreCore
 
 enum SideJITServerErrorType: Error {
      case invalidURL
@@ -27,7 +27,7 @@ protocol EnableJITContext
 }
 
 @available(iOS 14, *)
-final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>
+final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>, @unchecked Sendable
 {
     let context: Context
     
@@ -103,18 +103,19 @@ final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>
             guard let ctx = installedApp.managedObjectContext else {
                 throw OperationError.invalidParameters("EnableJITOperation: installedApp.managedObjectContext is nil")
             }
-            try await ctx.perform {
-                var lastError: Error?
-                for _ in 0..<3 {
-                    do {
-                        try debugApp(installedApp.resignedBundleIdentifier)
-                        return
-                    } catch {
-                        lastError = error
-                    }
+            let targetBundleId = await ctx.perform { installedApp.resignedBundleIdentifier }
+
+            var lastError: Error?
+            let maxRetries = 3
+            for _ in 0..<maxRetries {
+                do {
+                    try await debugApp(targetBundleId)
+                    return
+                } catch {
+                    lastError = error
                 }
-                if let error = lastError { throw error }
             }
+            if let error = lastError { throw error }
         }
     }
 

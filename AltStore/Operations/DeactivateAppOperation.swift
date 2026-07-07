@@ -12,7 +12,7 @@ import AltSign
 import CoreData
 
 @objc(DeactivateAppOperation)
-final class DeactivateAppOperation: ResultOperation<InstalledApp>
+final class DeactivateAppOperation: ResultOperation<InstalledApp>, @unchecked Sendable
 {
     let app: InstalledApp
     let context: OperationContext
@@ -45,34 +45,37 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>
         }
     }
     
-    private nonisolated func execute() async throws -> InstalledApp {
+    private func execute() async throws -> InstalledApp {
         let backgroundContext = DatabaseManager.shared.persistentContainer.newBackgroundContext()
+        let installedApp = await backgroundContext.perform {
+            backgroundContext.object(with: self.app.objectID) as! InstalledApp
+        }
+
+        try await self.performDeactivate(for: installedApp)
         try await backgroundContext.perform {
-            _ = try self.performDeactivate(in: backgroundContext)
             try backgroundContext.save()
         }
-        
-        return try await DatabaseManager.shared.persistentContainer.viewContext.perform {
-            return DatabaseManager.shared.persistentContainer.viewContext.object(with: self.app.objectID) as! InstalledApp
+        return await DatabaseManager.shared.persistentContainer.viewContext.perform {
+            DatabaseManager.shared.persistentContainer.viewContext.object(with: self.app.objectID) as! InstalledApp
         }
     }
     
-    private func performDeactivate(in backgroundContext: NSManagedObjectContext) throws -> InstalledApp {
-        let installedApp = backgroundContext.object(with: self.app.objectID) as! InstalledApp
-        let appExtensionProfiles = installedApp.appExtensions.map { $0.resignedBundleIdentifier }
-        let allIdentifiers = [installedApp.resignedBundleIdentifier] + appExtensionProfiles
-        
-        for profile in allIdentifiers {
-            do {
-                try removeProvisioningProfile(profile)
-                self.progress.completedUnitCount += 1
-                installedApp.isActive = false
-                return installedApp
-            } catch {
-                throw error
-            }
+    @discardableResult
+    private func performDeactivate(for installedApp: InstalledApp) async throws -> InstalledApp {
+        let appExBundleIds = installedApp.appExtensions.map { $0.resignedBundleIdentifier }
+        let allBundleIds = [installedApp.resignedBundleIdentifier] + appExBundleIds
+
+        var removedAny = false
+        for bundleId in allBundleIds {
+            try await removeProvisioningProfile(bundleId)
+            self.progress.completedUnitCount += 1
+            removedAny = true
         }
-        throw OperationError.invalidParameters("DeactivateAppOperation: no profiles found to remove")
+        guard removedAny else {
+            throw OperationError.invalidParameters("DeactivateAppOperation: no profiles found to remove")
+        }
+        installedApp.isActive = false
+        return installedApp
     }
     
     private func debugLog(_ text: String) {
