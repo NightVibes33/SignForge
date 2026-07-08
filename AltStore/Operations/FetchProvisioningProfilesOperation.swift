@@ -100,27 +100,34 @@ class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioni
     }
     
     internal func fetchProvisioningProfile(for appID: ALTAppID, app: ALTApplication, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTProvisioningProfile {
+        debugLog("Fetching existing provisioning profile to get its identifier for App ID \(appID.bundleIdentifier).")
         let profile = try await ALTAppleAPI.shared.fetchProvisioningProfile(for: appID, deviceType: .iphone, team: team, session: session)
         
         do {
             // Delete existing profile
-            try await ALTAppleAPI.shared.delete(profile, for: team, session: session)
+            debugLog("Deleting existing provisioning profile \(profile.identifier ?? "unknown") (\(profile.name)) from Apple's servers.")
+            try await ALTAppleAPI.shared.deleteProvisioningProfile(profile, for: team, session: session)
             
-            self.debugLog("Generating new free provisioning profile for App ID \(appID.bundleIdentifier).")
+            debugLog("Generating new free provisioning profile for App ID \(appID.bundleIdentifier) by fetching again.")
             
             // Fetch new provisioning profile
             return try await ALTAppleAPI.shared.fetchProvisioningProfile(for: appID, deviceType: .iphone, team: team, session: session)
         } catch {
             // As of March 20, 2023, the free provisioning profile is re-generated each fetch, and you can no longer delete it.
             // So instead, we just return the fetched profile from above.
+            if team.type == .free {
+                debugLog("Delete failed as expected for free provisioning account (deletion is blocked post-March 2023). Returning the freshly generated profile from the first fetch.")
+            } else {
+                debugLog("Delete failed for paid developer account: \(error.localizedDescription). Returning the profile fetched initially.")
+            }
             return profile
         }
     }
     
     private func fetchPreferredBundleID(for app: ALTApplication, team: ALTTeam) async throws -> String? {
-        try await DatabaseManager.shared.persistentContainer.performBackgroundTask { [weak self] (context) -> String? in
+        await DatabaseManager.shared.persistentContainer.performBackgroundTask { [weak self] (context) -> String? in
             guard let self else { return nil }
-            return self.preferredBundleID(for: app, team: team, in: context)
+            return preferredBundleID(for: app, team: team, in: context)
         }
     }
     
@@ -451,100 +458,4 @@ class FetchProvisioningProfilesRefreshOperation: FetchProvisioningProfilesInstal
     }
 }
 
-extension ALTAppleAPI {
-    func fetchProvisioningProfile(for appID: ALTAppID, deviceType: ALTDeviceType, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTProvisioningProfile {
-        try await withCheckedThrowingContinuation { continuation in
-            self.fetchProvisioningProfile(for: appID, deviceType: deviceType, team: team, session: session) { (profile, error) in
-                if let profile = profile {
-                    continuation.resume(returning: profile)
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func delete(_ profile: ALTProvisioningProfile, for team: ALTTeam, session: ALTAppleAPISession) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            self.delete(profile, for: team, session: session) { (success, error) in
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func fetchAppIDs(for team: ALTTeam, session: ALTAppleAPISession) async throws -> [ALTAppID] {
-        try await withCheckedThrowingContinuation { continuation in
-            self.fetchAppIDs(for: team, session: session) { (appIDs, error) in
-                if let appIDs = appIDs {
-                    continuation.resume(returning: appIDs)
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func addAppID(withName name: String, bundleIdentifier: String, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTAppID {
-        try await withCheckedThrowingContinuation { continuation in
-            self.addAppID(withName: name, bundleIdentifier: bundleIdentifier, team: team, session: session) { (appID, error) in
-                if let appID = appID {
-                    continuation.resume(returning: appID)
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func update(_ appID: ALTAppID, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTAppID {
-        try await withCheckedThrowingContinuation { continuation in
-            self.update(appID, team: team, session: session) { (updatedAppID, error) in
-                if let updatedAppID = updatedAppID {
-                    continuation.resume(returning: updatedAppID)
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func fetchAppGroups(for team: ALTTeam, session: ALTAppleAPISession) async throws -> [ALTAppGroup] {
-        try await withCheckedThrowingContinuation { continuation in
-            self.fetchAppGroups(for: team, session: session) { (groups, error) in
-                if let groups = groups {
-                    continuation.resume(returning: groups)
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func addAppGroup(withName name: String, groupIdentifier: String, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTAppGroup {
-        try await withCheckedThrowingContinuation { continuation in
-            self.addAppGroup(withName: name, groupIdentifier: groupIdentifier, team: team, session: session) { (group, error) in
-                if let group = group {
-                    continuation.resume(returning: group)
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-    
-    func assign(_ appID: ALTAppID, to groups: [ALTAppGroup], team: ALTTeam, session: ALTAppleAPISession) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            self.assign(appID, to: groups, team: team, session: session) { (success, error) in
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: error ?? OperationError.unknown())
-                }
-            }
-        }
-    }
-}
+

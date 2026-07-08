@@ -62,12 +62,12 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>, @unchecked Se
     
     @discardableResult
     private func performDeactivate(for installedApp: InstalledApp) async throws -> InstalledApp {
-        let appExBundleIds = installedApp.appExtensions.map { $0.resignedBundleIdentifier }
-        let allBundleIds = [installedApp.resignedBundleIdentifier] + appExBundleIds
+        let appExIdentifiers = installedApp.appExtensions.map { $0.resignedBundleIdentifier }
+        let allIdentifiers = [installedApp.resignedBundleIdentifier] + appExIdentifiers
 
         var removedAny = false
-        for bundleId in allBundleIds {
-            try await removeProvisioningProfile(bundleId)
+        for identifier in allIdentifiers {
+            try await removeProvisioningProfile(identifier)
             self.progress.completedUnitCount += 1
             removedAny = true
         }
