@@ -54,7 +54,7 @@ struct AnimatedCheckmarkView: View {
 
 struct VPNConfigurationView: View {
     @Environment(\.presentationMode) var presentationMode
-    @StateObject private var config = TunnelConfig.shared
+    @ObservedObject private var config = TunnelConfig.shared
     @State private var showConfirmDialog = false
 
     var body: some View {
