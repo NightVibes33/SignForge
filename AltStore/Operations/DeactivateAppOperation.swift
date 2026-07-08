@@ -79,13 +79,13 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>, @unchecked Se
     }
     
     private func debugLog(_ text: @autoclosure () -> String) {
-        print(text())
+        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
     }
     
     private func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: DeactivateAppOperation.self)
         if isLoggingEnabled {
-            print(text())
+            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

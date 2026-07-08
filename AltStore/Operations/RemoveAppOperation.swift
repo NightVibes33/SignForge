@@ -75,13 +75,13 @@ final class RemoveAppOperation: ResultOperation<InstalledApp>
     }
 
     private func debugLog(_ text: @autoclosure () -> String) {
-        print(text())
+        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
     }
 
     private func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RemoveAppOperation.self)
         if isLoggingEnabled {
-            print(text())
+            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

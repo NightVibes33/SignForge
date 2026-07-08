@@ -52,8 +52,18 @@ final class ConsoleLog: Sendable {
     }
 }
 
+private func getTag(level: String) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    let timestamp = formatter.string(from: Date())
+    let padding = level == "DEBUG" ? " " : "  "
+    return "\(timestamp) \(level)\(padding): "
+}
+
 // Global print override to shadow Swift's standard print
 func debugLog(_ items: Any..., separator: String = " ", terminator: String = "\n") {
     let message = items.map { "\($0)" }.joined(separator: separator)
-    ConsoleLog.shared.log(message)
+    ConsoleLog.shared.log("\(getTag(level: "DEBUG"))\(message)")
 }

@@ -55,3 +55,12 @@ class OperationsLoggingControl {
         return UserDefaults.standard.bool(forKey: key)
     }
 }
+
+internal func getOperationsLogTag(level: String) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    let timestamp = formatter.string(from: Date())
+    return "\(timestamp) \(level): "
+}

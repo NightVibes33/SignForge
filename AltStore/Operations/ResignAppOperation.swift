@@ -300,14 +300,14 @@ final class ResignAppOperation: ResultOperation<ALTApplication>, @unchecked Send
     }
 
     private func debugLog(_ text: @autoclosure () -> String) {
-        print(text())
+        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
     }
 
     private func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: ResignAppOperation.self)
         if isLoggingEnabled {
             // logging enabled, so log it
-            print(text())
+            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }
