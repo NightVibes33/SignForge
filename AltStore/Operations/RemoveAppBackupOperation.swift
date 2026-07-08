@@ -90,14 +90,14 @@ final class RemoveAppBackupOperation: ResultOperation<Void>
         }
     }
 
-    private func debugLog(_ text: String) {
-        print(text)
+    private func debugLog(_ text: @autoclosure () -> String) {
+        print(text())
     }
 
-    private func verboseLog(_ text: String) {
+    private func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RemoveAppBackupOperation.self)
         if isLoggingEnabled {
-            print(text)
+            print(text())
         }
     }
 }

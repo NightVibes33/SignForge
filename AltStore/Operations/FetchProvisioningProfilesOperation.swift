@@ -264,14 +264,14 @@ class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioni
         }
     }
 
-    func debugLog(_ text: String) {
-        print(text)
+    func debugLog(_ text: @autoclosure () -> String) {
+        print(text())
     }
 
-    func verboseLog(_ text: String) {
+    func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: type(of: self))
         if isLoggingEnabled {
-            print(text)
+            print(text())
         }
     }
 }

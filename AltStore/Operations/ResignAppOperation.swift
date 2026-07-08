@@ -299,15 +299,15 @@ final class ResignAppOperation: ResultOperation<ALTApplication>, @unchecked Send
         try manifestPlist.write(to: manifestPlistURL)
     }
 
-    private func debugLog(_ text: String) {
-        print(text)
+    private func debugLog(_ text: @autoclosure () -> String) {
+        print(text())
     }
 
-    private func verboseLog(_ text: String) {
+    private func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: ResignAppOperation.self)
         if isLoggingEnabled {
             // logging enabled, so log it
-            print(text)
+            print(text())
         }
     }
 }

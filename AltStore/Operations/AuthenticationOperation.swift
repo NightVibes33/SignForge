@@ -812,15 +812,15 @@ extension AuthenticationOperation {
         self.submitCodeAction?.isEnabled = (textField.text ?? "").count == 6
     }
 
-    func debugLog(_ text: String) {
-        print(text)
+    func debugLog(_ text: @autoclosure () -> String) {
+        print(text())
     }
 
-    func verboseLog(_ text: String) {
+    func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: AuthenticationOperation.self)
         if isLoggingEnabled {
             // logging enabled, so log it
-            print(text)
+            print(text())
         }
     }
 }

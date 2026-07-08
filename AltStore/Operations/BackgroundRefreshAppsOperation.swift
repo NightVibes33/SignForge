@@ -267,14 +267,14 @@ final class BackgroundRefreshAppsOperation: ResultOperation<[String: Result<Inst
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [self.refreshIdentifier])
     }
 
-    private func debugLog(_ text: String) {
-        print(text)
+    private func debugLog(_ text: @autoclosure () -> String) {
+        print(text())
     }
 
-    private func verboseLog(_ text: String) {
+    private func verboseLog(_ text: @autoclosure () -> String) {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: BackgroundRefreshAppsOperation.self)
         if isLoggingEnabled {
-            print(text)
+            print(text())
         }
     }
 }
