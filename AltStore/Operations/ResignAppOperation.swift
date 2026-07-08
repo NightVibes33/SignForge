@@ -12,7 +12,7 @@ import AltStoreCore
 import AltSign
 
 @objc(ResignAppOperation)
-final class ResignAppOperation: ResultOperation<ALTApplication> {
+final class ResignAppOperation: ResultOperation<ALTApplication>, @unchecked Sendable {
     let context: InstallAppOperationContext
     
     init(context: InstallAppOperationContext) {
@@ -198,9 +198,15 @@ final class ResignAppOperation: ResultOperation<ALTApplication> {
     }
     
     private func prepare(_ bundle: Bundle, bundleID identifier: String?, additionalInfoDictionaryValues: [String: Any] = [:], profiles: [String: ALTProvisioningProfile], appexBundleIds: [String: String]) throws {
-        guard let identifier else { throw ALTError(.missingAppBundle) }
-        guard let profile = context.useMainProfile ? profiles.values.first : profiles[identifier] else { throw ALTError(.missingProvisioningProfile) }
-        guard var infoDictionary = bundle.completeInfoDictionary else { throw ALTError(.missingInfoPlist) }
+        guard let identifier else {
+            throw ALTError(.missingAppBundle)
+        }
+        guard let profile = context.useMainProfile ? profiles.values.first : profiles[identifier] else {
+            throw ALTError(.missingProvisioningProfile)
+        }
+        guard var infoDictionary = bundle.completeInfoDictionary else {
+            throw ALTError(.missingInfoPlist)
+        }
         
         if let forcedBundleIdentifier = appexBundleIds[identifier] {
             infoDictionary[kCFBundleIdentifierKey as String] = forcedBundleIdentifier
