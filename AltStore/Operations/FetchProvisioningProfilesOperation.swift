@@ -100,6 +100,7 @@ class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioni
     }
     
     internal func fetchProvisioningProfile(for appID: ALTAppID, app: ALTApplication, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTProvisioningProfile {
+        debugLog(app.dumpMachOInfo())
         debugLog("Fetching existing provisioning profile to get its identifier for App ID \(appID.bundleIdentifier).")
         let profile = try await ALTAppleAPI.shared.fetchProvisioningProfile(for: appID, deviceType: .iphone, team: team, session: session)
         
@@ -293,7 +294,6 @@ class FetchProvisioningProfilesInstallOperation: FetchProvisioningProfilesOperat
                                     app: ALTApplication,
                                     team: ALTTeam,
                                     session: ALTAppleAPISession) async throws -> ALTProvisioningProfile {
-        
         // Update features
         let updatedAppID = try await self.updateFeatures(for: appID, app: app, team: team, session: session)
         
