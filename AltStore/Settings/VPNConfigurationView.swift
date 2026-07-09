@@ -93,7 +93,7 @@ struct VPNConfigurationView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     SButton("Confirm") {
-                        commitChanges()
+                        Task { await commitChanges() }
                     }
                 }
             }
@@ -139,8 +139,8 @@ struct VPNConfigurationView: View {
         .animation(.easeInOut, value: showConfirmDialog)
     }
 
-    private func commitChanges() {
-        bindTunnelConfig()
+    private func commitChanges() async {
+        await bindTunnelConfig()
         showConfirmDialog = true
     }
     

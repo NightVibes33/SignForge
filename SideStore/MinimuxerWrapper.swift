@@ -8,7 +8,7 @@
 import Foundation
 import Minimuxer
 
-func bindTunnelConfig() {
+func bindTunnelConfig() async {
     defer { debugLog("[SideStore] bindTunnelConfig() completed") }
 
     #if targetEnvironment(simulator)
@@ -23,7 +23,7 @@ func bindTunnelConfig() {
         getOverrideFakeIP: { config.overrideFakeIP },
         setOverrideEffective: { value in Task { @MainActor in config.overrideEffective = value } }
     )
-    Task { await Minimuxer.shared.bindTunnelConfig(configBinding) }
+    await Minimuxer.shared.bindTunnelConfig(configBinding)
     #endif
 }
 
@@ -103,10 +103,9 @@ func minimuxerStart(_ pairingFile: String, mountPath: String) async throws {
     defer { debugLog("[SideStore] minimuxerStart(pairingFile) completed") }
     #if targetEnvironment(simulator)
     debugLog("[SideStore] minimuxerStart(pairingFile) is no-op on simulator")
-    bindTunnelConfig()
+    await bindTunnelConfig()
     #else
-    bindTunnelConfig()
-    Minimuxer.network.start()
+    await bindTunnelConfig()
     debugLog("[SideStore] minimuxerStart(pairingFile) invoked")
     try await Minimuxer.shared.start(pairingFile: pairingFile, mountPath: mountPath)
     #endif
@@ -232,7 +231,7 @@ extension Result {
     }
 }
 
-extension MinimuxerError: @retroactive LocalizedError {
+extension MinimuxerError {
     public var failureReason: String? {
         switch self {
         case .noDevice:
