@@ -21,6 +21,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions)
     {
+        debugLog("SceneDelegate.scene(willConnectTo:) invoked")
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
         // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
@@ -51,6 +52,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate
 
     func sceneDidBecomeActive(_ scene: UIScene)
     {
+        debugLog("SceneDelegate.sceneDidBecomeActive() invoked")
         // Flush any .ipa import that arrived before the scene was active (cold launch).
         guard let url = self.pendingImportIPAURL else { return }
         self.pendingImportIPAURL = nil

@@ -32,6 +32,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
     }
 
     override func viewDidAppear(_ animated: Bool) {
+        debugLog("LaunchViewController.viewDidAppear() invoked")
         super.viewDidAppear(animated)
         guard !didFinishLaunching else { return }
         startTime = Date()
