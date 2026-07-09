@@ -220,7 +220,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
 
     @MainActor
     func displayError(_ msg: String) {
-        debugLog(msg)
+        debugLog("[SideStore] \(msg)")
         let alert = UIAlertController(title: "Error launching SideStore", message: msg, preferredStyle: .alert)
         self.present(alert, animated: true)
     }

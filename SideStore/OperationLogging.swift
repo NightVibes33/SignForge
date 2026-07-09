@@ -15,7 +15,12 @@ internal protocol OperationLogging where Self: Operation {
 internal extension OperationLogging {
 
     func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
+        let message = text()
+        if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
+            print(message)
+        } else {
+            print("\(getOperationsLogTag(level: "DEBUG"))\(message)")
+        }
     }
 
     func verboseLog(_ text: @autoclosure () -> String) {

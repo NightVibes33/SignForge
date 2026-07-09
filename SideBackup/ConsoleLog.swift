@@ -65,5 +65,9 @@ private func getTag(level: String) -> String {
 // Global print override to shadow Swift's standard print
 func debugLog(_ items: Any..., separator: String = " ", terminator: String = "\n") {
     let message = items.map { "\($0)" }.joined(separator: separator)
-    ConsoleLog.shared.log("\(getTag(level: "DEBUG"))\(message)")
+    if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
+        ConsoleLog.shared.log(message)
+    } else {
+        ConsoleLog.shared.log("\(getTag(level: "DEBUG"))\(message)")
+    }
 }
