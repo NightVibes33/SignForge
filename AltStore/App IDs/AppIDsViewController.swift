@@ -49,28 +49,32 @@ final class AppIDsViewController: UICollectionViewController
         
         if !self.didInitialFetch
         {
-            if UserDefaults.standard.isMinimuxerStatusCheckEnabled, minimuxerStatus.operationError != nil
-            {
-                // Silently skip initial network fetch
-                self.didInitialFetch = true
-                self.isLoading = false
-                self.update()
-            }
-            else
-            {
-                self.fetchAppIDs()
+            Task { @MainActor in
+                if UserDefaults.standard.isMinimuxerStatusCheckEnabled, await minimuxerStatus.operationError != nil
+                {
+                    // Silently skip initial network fetch
+                    self.didInitialFetch = true
+                    self.isLoading = false
+                    self.update()
+                }
+                else
+                {
+                    self.fetchAppIDs()
+                }
             }
         }
     }
 
     var isMinimuxerReady: Bool {
-        if UserDefaults.standard.isMinimuxerStatusCheckEnabled {
-            if let error = minimuxerStatus.operationError {
-                ToastView(error: error).show(in: self)
-                return false
+        get async {
+            if UserDefaults.standard.isMinimuxerStatusCheckEnabled {
+                if let error = await minimuxerStatus.operationError {
+                    ToastView(error: error).show(in: self)
+                    return false
+                }
             }
+            return true
         }
-        return true
     }
 }
 
@@ -169,12 +173,14 @@ private extension AppIDsViewController
     
     @objc func fetchAppIDs()
     {
-        guard isMinimuxerReady else
-        {
-            self.collectionView.refreshControl?.endRefreshing()
-            return
+        Task { @MainActor in
+            guard await isMinimuxerReady else
+            {
+                self.collectionView.refreshControl?.endRefreshing()
+                return
+            }
+            self.fetchAppIDsFromServer(completion: nil)
         }
-        self.fetchAppIDsFromServer(completion: nil)
     }
     
     func fetchAppIDsFromServer(completion: (() -> Void)?)
@@ -404,33 +410,35 @@ private extension AppIDsViewController
     
     @objc func editButtonTapped()
     {
-        if self.isEditingMode
-        {
-            let selectedCount = self.collectionView.indexPathsForSelectedItems?.count ?? 0
-            if selectedCount > 0
+        Task { @MainActor in
+            if self.isEditingMode
             {
-                guard isMinimuxerReady else { return }
-                
-                let alert = UIAlertController(
-                    title: NSLocalizedString("Delete App IDs", comment: ""),
-                    message: String(format: NSLocalizedString("Are you sure you want to proceed to delete %d appIds?", comment: ""), selectedCount),
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
-                alert.addAction(UIAlertAction(title: NSLocalizedString("Delete", comment: ""), style: .destructive) { [weak self] _ in
-                    self?.deleteSelectedAppIDs()
-                })
-                self.present(alert, animated: true)
+                let selectedCount = self.collectionView.indexPathsForSelectedItems?.count ?? 0
+                if selectedCount > 0
+                {
+                    guard await isMinimuxerReady else { return }
+                    
+                    let alert = UIAlertController(
+                        title: NSLocalizedString("Delete App IDs", comment: ""),
+                        message: String(format: NSLocalizedString("Are you sure you want to proceed to delete %d appIds?", comment: ""), selectedCount),
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+                    alert.addAction(UIAlertAction(title: NSLocalizedString("Delete", comment: ""), style: .destructive) { [weak self] _ in
+                        self?.deleteSelectedAppIDs()
+                    })
+                    self.present(alert, animated: true)
+                }
+                else
+                {
+                    self.exitEditMode()
+                }
             }
             else
             {
-                self.exitEditMode()
+                guard await isMinimuxerReady else { return }
+                self.enterEditMode()
             }
-        }
-        else
-        {
-            guard isMinimuxerReady else { return }
-            self.enterEditMode()
         }
     }
     

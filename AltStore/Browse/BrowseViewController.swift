@@ -557,14 +557,14 @@ private extension BrowseViewController
             previousProgress?.cancel()
             return
         }
-
-        if let error = minimuxerStatus.operationError {
-            let toastView = ToastView(error: error)
-            toastView.show(in: self)
-            return
-        }
         
         Task(priority: .userInitiated) { @MainActor in
+            if let error = await minimuxerStatus.operationError {
+                let toastView = ToastView(error: error)
+                toastView.show(in: self)
+                return
+            }
+            
             // if let installedApp = app.installedApp, installedApp.isUpdateAvailable
             if let installedApp = app.installedApp, installedApp.hasUpdate
             {

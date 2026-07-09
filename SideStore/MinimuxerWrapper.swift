@@ -36,7 +36,6 @@ enum MinimuxerStatus {
     case pairingFile
     case invalidPairing
     case unknown
-    case unavailable
     
     var operationError: OperationError? {
         switch self {

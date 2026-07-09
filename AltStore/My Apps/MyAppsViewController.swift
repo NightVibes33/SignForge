@@ -171,14 +171,24 @@ class MyAppsViewController: UICollectionViewController, PeekPopPreviewing
     }
 
     var isMinimuxerReady: Bool {
-        // added isMinimuxerStatusCheckEnabled to forcefully ignore minimuxer status if status check is disabled in settings
-        if UserDefaults.standard.isMinimuxerStatusCheckEnabled {
-            if let error = minimuxerStatus.operationError {
-                ToastView(error: error).show(in: self)
-                return false
+        get async {
+            // added isMinimuxerStatusCheckEnabled to forcefully ignore minimuxer status if status check is disabled in settings
+            if UserDefaults.standard.isMinimuxerStatusCheckEnabled {
+                if let error = await minimuxerStatus.operationError {
+                    ToastView(error: error).show(in: self)
+                    return false
+                }
+            }
+            return true
+        }
+    }
+
+    func performWithMinimuxerReady(action: @escaping @MainActor () -> Void) {
+        Task { @MainActor in
+            if await isMinimuxerReady {
+                action()
             }
         }
-        return true
     }
 }
 
@@ -779,43 +789,45 @@ private extension MyAppsViewController
     
     @IBAction func refreshAllApps(_ sender: UIBarButtonItem)
     {
-        guard isMinimuxerReady else { return }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        let installedApps = InstalledApp.fetchAppsForRefreshingAll(in: DatabaseManager.shared.viewContext)
-        guard !installedApps.isEmpty else {
-            let error: Error
+            let installedApps = InstalledApp.fetchAppsForRefreshingAll(in: DatabaseManager.shared.viewContext)
+            guard !installedApps.isEmpty else {
+                let error: Error
+                
+                if let altstoreApp = InstalledApp.fetchAltStore(in: DatabaseManager.shared.viewContext),
+                   let storeApp = altstoreApp.storeApp, storeApp.isPledgeRequired && !storeApp.isPledged
+                {
+                    // Assume the reason there are no apps is because we are no longer pledged to AltStore beta.
+                    error = OperationError(.pledgeInactive(appName: altstoreApp.name))
+                }
+                else
+                {
+                    // Otherwise, fall back to generic noInstalledApps.
+                    error = RefreshError(.noInstalledApps)
+                }
+                
+                let toastView = ToastView(error: error)
+                toastView.show(in: self)
+                return
+            }
             
-            if let altstoreApp = InstalledApp.fetchAltStore(in: DatabaseManager.shared.viewContext),
-               let storeApp = altstoreApp.storeApp, storeApp.isPledgeRequired && !storeApp.isPledged
-            {
-                // Assume the reason there are no apps is because we are no longer pledged to AltStore beta.
-                error = OperationError(.pledgeInactive(appName: altstoreApp.name))
-            }
-            else
-            {
-                // Otherwise, fall back to generic noInstalledApps.
-                error = RefreshError(.noInstalledApps)
+            self.isRefreshingAllApps = true
+            self.collectionView.collectionViewLayout.invalidateLayout()
+            
+            self.refresh(installedApps) { (result) in
+                DispatchQueue.main.async {
+                    self.isRefreshingAllApps = false
+                    self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+                }
             }
             
-            let toastView = ToastView(error: error)
-            toastView.show(in: self)
-            return
-        }
-        
-        self.isRefreshingAllApps = true
-        self.collectionView.collectionViewLayout.invalidateLayout()
-        
-        self.refresh(installedApps) { (result) in
-            DispatchQueue.main.async {
-                self.isRefreshingAllApps = false
-                self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+            let interaction = INInteraction.refreshAllApps()
+            interaction.donate { (error) in
+                guard let error = error else { return }
+                debugLog("Failed to donate intent \(interaction.intent). \(error)")
             }
-        }
-        
-        let interaction = INInteraction.refreshAllApps()
-        interaction.donate { (error) in
-            guard let error = error else { return }
-            debugLog("Failed to donate intent \(interaction.intent). \(error)")
         }
     }
     
@@ -861,13 +873,15 @@ private extension MyAppsViewController
     
     @IBAction func sideloadApp(_ sender: UIBarButtonItem)
     {
-        guard isMinimuxerReady else { return }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        let supportedTypes = UTType.types(tag: "ipa", tagClass: .filenameExtension, conformingTo: nil)
-        
-        let documentPickerViewController = UIDocumentPickerViewController(forOpeningContentTypes: supportedTypes, asCopy: true)
-        documentPickerViewController.delegate = self
-        self.present(documentPickerViewController, animated: true, completion: nil)
+            let supportedTypes = UTType.types(tag: "ipa", tagClass: .filenameExtension, conformingTo: nil)
+            
+            let documentPickerViewController = UIDocumentPickerViewController(forOpeningContentTypes: supportedTypes, asCopy: true)
+            documentPickerViewController.delegate = self
+            self.present(documentPickerViewController, animated: true, completion: nil)
+        }
     }
     
     func sideloadApp(at url: URL, completion: @escaping (Result<Void, Error>) -> Void)
@@ -1145,134 +1159,144 @@ private extension MyAppsViewController
     
     func refresh(_ installedApp: InstalledApp)
     {
-       // we do need minimuxer, coz it needs to talk to misagent daemon which manages profiles 
-       // so basically loopback vpn is still required
-       guard isMinimuxerReady else { return }     // we don't need minimuxer when renewing appIDs only do we, heck we can even do it on mobile internet
+        // we do need minimuxer, coz it needs to talk to misagent daemon which manages profiles 
+        // so basically loopback vpn is still required
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        let previousProgress = AppManager.shared.refreshProgress(for: installedApp)
-        guard previousProgress == nil else {
-            previousProgress?.cancel()
-            return
-        }
-        
-        self.refresh([installedApp]) { (results) in
-            // If an error occured, reload the section so the progress bar is no longer visible.
-            if results.values.contains(where: { $0.error != nil })
-            {
-                DispatchQueue.main.async {
-                    self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
-                }
+            let previousProgress = AppManager.shared.refreshProgress(for: installedApp)
+            guard previousProgress == nil else {
+                previousProgress?.cancel()
+                return
             }
             
-            debugLog("Finished refreshing with results: \(results.map { ($0, $1.error?.localizedDescription ?? "success") })")
+            self.refresh([installedApp]) { (results) in
+                // If an error occured, reload the section so the progress bar is no longer visible.
+                if results.values.contains(where: { $0.error != nil })
+                {
+                    DispatchQueue.main.async {
+                        self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+                    }
+                }
+                
+                debugLog("Finished refreshing with results: \(results.map { ($0, $1.error?.localizedDescription ?? "success") })")
+            }
         }
     }
     
     func resign(_ installedApp: InstalledApp)
     {
-        guard isMinimuxerReady else { return }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        let previousProgress = AppManager.shared.refreshProgress(for: installedApp)
-        guard previousProgress == nil else {
-            previousProgress?.cancel()
-            return
-        }
-        
-        AppManager.shared.resign(installedApp, presentingViewController: self) { (result) in
-            DispatchQueue.main.async {
-                self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+            let previousProgress = AppManager.shared.refreshProgress(for: installedApp)
+            guard previousProgress == nil else {
+                previousProgress?.cancel()
+                return
             }
             
-            switch result
-            {
-            case .failure(let error):
-                debugLog("Failed to resign app: \(error)")
+            AppManager.shared.resign(installedApp, presentingViewController: self) { (result) in
                 DispatchQueue.main.async {
-                    ToastView(error: error, opensLog: true).show(in: self)
+                    self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
                 }
-            case .success(let app):
-                debugLog("Successfully resigned app: \(app.name)")
+                
+                switch result
+                {
+                case .failure(let error):
+                    debugLog("Failed to resign app: \(error)")
+                    DispatchQueue.main.async {
+                        ToastView(error: error, opensLog: true).show(in: self)
+                    }
+                case .success(let app):
+                    debugLog("Successfully resigned app: \(app.name)")
+                }
             }
         }
     }
     
     func activate(_ installedApp: InstalledApp)
     {
-        guard isMinimuxerReady else { return }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        func finish(_ result: Result<InstalledApp, Error>)
-        {
-            do
+            func finish(_ result: Result<InstalledApp, Error>)
             {
-                let app = try result.get()
-                app.managedObjectContext?.perform {
-                    app.isActive = true
-                    try? app.managedObjectContext?.save()
+                do
+                {
+                    let app = try result.get()
+                    app.managedObjectContext?.perform {
+                        app.isActive = true
+                        try? app.managedObjectContext?.save()
+                    }
                 }
-            }
-            catch OperationError.cancelled
-            {
-                // Ignore
-            }
-            catch
-            {
-                debugLog("Failed to activate app: \(error)")
-                
-                DispatchQueue.main.async {
-                    ToastView(error: error, opensLog: true).show(in: self)
+                catch OperationError.cancelled
+                {
+                    // Ignore
                 }
-            }
-        }
-                
-        if !UserDefaults.standard.isAppLimitDisabled && UserDefaults.standard.activeAppsLimit != nil, #available(iOS 13, *)
-        {
-            guard let app = ALTApplication(fileURL: installedApp.fileURL) else { return finish(.failure(OperationError.invalidApp)) }
-            
-            AppManager.shared.deactivateApps(for: app, presentingViewController: self) { result in
-                installedApp.managedObjectContext?.perform {
-                    switch result
-                    {
-                    case .failure(let error):
-                        finish(.failure(error))
-                        
-                    case .success:
-                        AppManager.shared.activate(installedApp, presentingViewController: self, completionHandler: finish(_:))
+                catch
+                {
+                    debugLog("Failed to activate app: \(error)")
+                    
+                    DispatchQueue.main.async {
+                        ToastView(error: error, opensLog: true).show(in: self)
                     }
                 }
             }
-        }
-        else
-        {
-            AppManager.shared.activate(installedApp, presentingViewController: self, completionHandler: finish(_:))
+                    
+            if !UserDefaults.standard.isAppLimitDisabled && UserDefaults.standard.activeAppsLimit != nil, #available(iOS 13, *)
+            {
+                guard let app = ALTApplication(fileURL: installedApp.fileURL) else { return finish(.failure(OperationError.invalidApp)) }
+                
+                AppManager.shared.deactivateApps(for: app, presentingViewController: self) { result in
+                    installedApp.managedObjectContext?.perform {
+                        switch result
+                        {
+                        case .failure(let error):
+                            finish(.failure(error))
+                            
+                        case .success:
+                            AppManager.shared.activate(installedApp, presentingViewController: self, completionHandler: finish(_:))
+                        }
+                    }
+                }
+            }
+            else
+            {
+                AppManager.shared.activate(installedApp, presentingViewController: self, completionHandler: finish(_:))
+            }
         }
     }
     
     func deactivate(_ installedApp: InstalledApp, completionHandler: ((Result<InstalledApp, Error>) -> Void)? = nil)
     {
-        guard installedApp.isActive, isMinimuxerReady else { return }
+        guard installedApp.isActive else { return }
         
-        AppManager.shared.deactivate(installedApp, presentingViewController: self) { (result) in
-            do
-            {
-                let app = try result.get()
-                try? app.managedObjectContext?.save()
-                
-                debugLog("Finished deactivating app: \(app.bundleIdentifier)")
-            }
-            catch OperationError.cancelled
-            {
-                // Ignore
-            }
-            catch
-            {
-                debugLog("Failed to deactivate app: \(error)")
-                
-                DispatchQueue.main.async {
-                    ToastView(error: error, opensLog: true).show(in: self)
-                }
-            }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
             
-            completionHandler?(result)
+            AppManager.shared.deactivate(installedApp, presentingViewController: self) { (result) in
+                do
+                {
+                    let app = try result.get()
+                    try? app.managedObjectContext?.save()
+                    
+                    debugLog("Finished deactivating app: \(app.bundleIdentifier)")
+                }
+                catch OperationError.cancelled
+                {
+                    // Ignore
+                }
+                catch
+                {
+                    debugLog("Failed to deactivate app: \(error)")
+                    
+                    DispatchQueue.main.async {
+                        ToastView(error: error, opensLog: true).show(in: self)
+                    }
+                }
+                
+                completionHandler?(result)
+            }
         }
     }
     
@@ -1310,42 +1334,44 @@ private extension MyAppsViewController
     
     func backup(_ installedApp: InstalledApp)
     {
-        guard isMinimuxerReady else { return }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        let title = NSLocalizedString("Start Backup?", comment: "")
-        let message = NSLocalizedString("This will replace any previous backups. Please leave SideStore open until the backup is complete.", comment: "")
+            let title = NSLocalizedString("Start Backup?", comment: "")
+            let message = NSLocalizedString("This will replace any previous backups. Please leave SideStore open until the backup is complete.", comment: "")
 
-        let alertController = UIAlertController(title: title, message: message, preferredStyle: .actionSheet)
-        alertController.addAction(.cancel)
-        
-        let actionTitle = String(format: NSLocalizedString("Back Up %@", comment: ""), installedApp.name)
-        alertController.addAction(UIAlertAction(title: actionTitle, style: .default, handler: { (action) in
-            AppManager.shared.backup(installedApp, presentingViewController: self) { (result) in
-                do
-                {
-                    let app = try result.get()
-                    try? app.managedObjectContext?.save()
-                    
-                    debugLog("Finished backing up app: \(app.bundleIdentifier)")
-                }
-                catch
-                {
-                    debugLog("Failed to back up app: \(error)")
-                    
-                    DispatchQueue.main.async {
-                        ToastView(error: error, opensLog: true).show(in: self)
+            let alertController = UIAlertController(title: title, message: message, preferredStyle: .actionSheet)
+            alertController.addAction(.cancel)
+            
+            let actionTitle = String(format: NSLocalizedString("Back Up %@", comment: ""), installedApp.name)
+            alertController.addAction(UIAlertAction(title: actionTitle, style: .default, handler: { (action) in
+                AppManager.shared.backup(installedApp, presentingViewController: self) { (result) in
+                    do
+                    {
+                        let app = try result.get()
+                        try? app.managedObjectContext?.save()
+                        
+                        debugLog("Finished backing up app: \(app.bundleIdentifier)")
+                    }
+                    catch
+                    {
+                        debugLog("Failed to back up app: \(error)")
+                        
+                        DispatchQueue.main.async {
+                            ToastView(error: error, opensLog: true).show(in: self)
 
-                        self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+                            self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+                        }
                     }
                 }
-            }
+                
+                DispatchQueue.main.async {
+                    self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
+                }
+            }))
             
-            DispatchQueue.main.async {
-                self.collectionView.reloadSections([Section.activeApps.rawValue, Section.inactiveApps.rawValue])
-            }
-        }))
-        
-        self.present(alertController, animated: true, completion: nil)
+            self.present(alertController, animated: true, completion: nil)
+        }
     }
     
     func importBackup(for installedApp: InstalledApp){
@@ -1394,36 +1420,38 @@ private extension MyAppsViewController
     
     func restore(_ installedApp: InstalledApp)
     {
-        guard isMinimuxerReady else { return }
+        Task { @MainActor in
+            guard await isMinimuxerReady else { return }
 
-        let message = String(format: NSLocalizedString("This will replace all data you currently have in %@.", comment: ""), installedApp.name)
-        let alertController = UIAlertController(title: NSLocalizedString("Are you sure you want to restore this backup?", comment: ""), message: message, preferredStyle: .actionSheet)
-        alertController.addAction(.cancel)
-        alertController.addAction(UIAlertAction(title: NSLocalizedString("Restore Backup", comment: ""), style: .destructive, handler: { (action) in
-            AppManager.shared.restore(installedApp, presentingViewController: self) { (result) in
-                do
-                {
-                    let app = try result.get()
-                    try? app.managedObjectContext?.save()
-                    
-                    debugLog("Finished restoring app: \(app.bundleIdentifier)")
-                }
-                catch
-                {
-                    debugLog("Failed to restore app: \(error)")
-                    
-                    DispatchQueue.main.async {
-                        ToastView(error: error, opensLog: true).show(in: self)
+            let message = String(format: NSLocalizedString("This will replace all data you currently have in %@.", comment: ""), installedApp.name)
+            let alertController = UIAlertController(title: NSLocalizedString("Are you sure you want to restore this backup?", comment: ""), message: message, preferredStyle: .actionSheet)
+            alertController.addAction(.cancel)
+            alertController.addAction(UIAlertAction(title: NSLocalizedString("Restore Backup", comment: ""), style: .destructive, handler: { (action) in
+                AppManager.shared.restore(installedApp, presentingViewController: self) { (result) in
+                    do
+                    {
+                        let app = try result.get()
+                        try? app.managedObjectContext?.save()
+                        
+                        debugLog("Finished restoring app: \(app.bundleIdentifier)")
+                    }
+                    catch
+                    {
+                        debugLog("Failed to restore app: \(error)")
+                        
+                        DispatchQueue.main.async {
+                            ToastView(error: error, opensLog: true).show(in: self)
+                        }
                     }
                 }
-            }
+                
+                DispatchQueue.main.async {
+                    self.collectionView.reloadSections([Section.activeApps.rawValue])
+                }
+            }))
             
-            DispatchQueue.main.async {
-                self.collectionView.reloadSections([Section.activeApps.rawValue])
-            }
-        }))
-        
-        self.present(alertController, animated: true, completion: nil)
+            self.present(alertController, animated: true, completion: nil)
+        }
     }
     
     func exportBackup(for installedApp: InstalledApp)
@@ -1507,20 +1535,28 @@ private extension MyAppsViewController
     func enableJIT(for installedApp: InstalledApp) {
         let sidejitenabled = UserDefaults.standard.sidejitenable
         
-        if #unavailable(iOS 17), !sidejitenabled {
-            guard isMinimuxerReady else { return }
-        }
-        
-        AppManager.shared.enableJIT(for: installedApp) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    break
-                case .failure(let error):
-                    ToastView(error: error, opensLog: true).show(in: self)
-                    AppManager.shared.log(error, operation: .enableJIT, app: installedApp)
+        let proceed = { [weak self] in
+            guard let self = self else { return }
+            AppManager.shared.enableJIT(for: installedApp) { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        break
+                    case .failure(let error):
+                        ToastView(error: error, opensLog: true).show(in: self)
+                        AppManager.shared.log(error, operation: .enableJIT, app: installedApp)
+                    }
                 }
             }
+        }
+        
+        if #unavailable(iOS 17), !sidejitenabled {
+            Task { @MainActor in
+                guard await isMinimuxerReady else { return }
+                proceed()
+            }
+        } else {
+            proceed()
         }
     }
 }
