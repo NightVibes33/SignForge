@@ -480,38 +480,47 @@ private extension DatabaseManager
                 
                 if replaceCachedApp
                 {
-                    func update(_ bundle: Bundle, bundleID: String) throws
-                    {
-                        let infoPlistURL = bundle.bundleURL.appendingPathComponent("Info.plist")
-                        
-                        guard var infoDictionary = bundle.completeInfoDictionary else { throw ALTError(.missingInfoPlist) }
-                        infoDictionary[kCFBundleIdentifierKey as String] = bundleID
-                        try (infoDictionary as NSDictionary).write(to: infoPlistURL)
+                    let fileURL = installedApp.fileURL
+                    let bundleURL = Bundle.main.bundleURL
+                    let altstoreAppID = StoreApp.altstoreAppID
+                    let extensionBundleIDMap = installedExtensions.reduce(into: [String: String]()) { dict, ext in
+                        dict[ext.resignedBundleIdentifier] = ext.bundleIdentifier
                     }
                     
-                    FileManager.default.prepareTemporaryURL() { (temporaryFileURL) in
-                        do
+                    Task.detached(priority: .background) {
+                        func update(_ bundle: Bundle, bundleID: String) throws
                         {
-                            try FileManager.default.copyItem(at: Bundle.main.bundleURL, to: temporaryFileURL)
+                            let infoPlistURL = bundle.bundleURL.appendingPathComponent("Info.plist")
                             
-                            guard let appBundle = Bundle(url: temporaryFileURL) else { throw ALTError(.invalidApp) }
-                            try update(appBundle, bundleID: StoreApp.altstoreAppID)
-                            
-                            if let tempApp = ALTApplication(fileURL: temporaryFileURL)
-                            {
-                                for appExtension in tempApp.appExtensions
-                                {
-                                    guard let extensionBundle = Bundle(url: appExtension.fileURL) else { throw ALTError(.invalidApp) }
-                                    guard let installedExtension = installedExtensions.first(where: { $0.resignedBundleIdentifier == appExtension.bundleIdentifier }) else { throw ALTError(.invalidApp) }
-                                    try update(extensionBundle, bundleID: installedExtension.bundleIdentifier)
-                                }
-                            }
-                            
-                            try FileManager.default.copyItem(at: temporaryFileURL, to: fileURL, shouldReplace: true)
+                            guard var infoDictionary = bundle.completeInfoDictionary else { throw ALTError(.missingInfoPlist) }
+                            infoDictionary[kCFBundleIdentifierKey as String] = bundleID
+                            try (infoDictionary as NSDictionary).write(to: infoPlistURL)
                         }
-                        catch
-                        {
-                            debugLog("Failed to copy SideStore app bundle to its proper location. \(error)")
+                        
+                        FileManager.default.prepareTemporaryURL() { (temporaryFileURL) in
+                            do
+                            {
+                                try FileManager.default.copyItem(at: bundleURL, to: temporaryFileURL)
+                                
+                                guard let appBundle = Bundle(url: temporaryFileURL) else { throw ALTError(.invalidApp) }
+                                try update(appBundle, bundleID: altstoreAppID)
+                                
+                                if let tempApp = ALTApplication(fileURL: temporaryFileURL)
+                                {
+                                    for appExtension in tempApp.appExtensions
+                                    {
+                                        guard let extensionBundle = Bundle(url: appExtension.fileURL) else { throw ALTError(.invalidApp) }
+                                        guard let originalBundleID = extensionBundleIDMap[appExtension.bundleIdentifier] else { throw ALTError(.invalidApp) }
+                                        try update(extensionBundle, bundleID: originalBundleID)
+                                    }
+                                }
+                                
+                                try FileManager.default.copyItem(at: temporaryFileURL, to: fileURL, shouldReplace: true)
+                            }
+                            catch
+                            {
+                                debugLog("Failed to copy SideStore app bundle to its proper location. \(error)")
+                            }
                         }
                     }
                 }
