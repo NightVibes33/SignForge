@@ -33,7 +33,7 @@ final class ConsoleLog: Sendable {
         return logsDir.appendingPathComponent("SideBackup.log")
     }
     
-    func log(_ message: String) {
+    func log(_ message: String, terminator: String = "\n") {
         // 1. Log to Apple's OSLog
         logger.info("\(message)")
         
@@ -42,12 +42,12 @@ final class ConsoleLog: Sendable {
         if let handle = try? FileHandle(forWritingTo: url) {
             defer { try? handle.close() }
             _ = try? handle.seekToEnd()
-            if let data = (message + "\n").data(using: .utf8) {
+            if let data = (message + terminator).data(using: .utf8) {
                 try? handle.write(contentsOf: data)
             }
         } else {
             // Create file if it doesn't exist
-            try? (message + "\n").write(to: url, atomically: true, encoding: .utf8)
+            try? (message + terminator).write(to: url, atomically: true, encoding: .utf8)
         }
     }
 }
@@ -66,8 +66,8 @@ private func getTag(level: String) -> String {
 func debugLog(_ items: Any..., separator: String = " ", terminator: String = "\n") {
     let message = items.map { "\($0)" }.joined(separator: separator)
     if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
-        ConsoleLog.shared.log(message)
+        ConsoleLog.shared.log(message, terminator: "")
     } else {
-        ConsoleLog.shared.log("\(getTag(level: "DEBUG"))\(message)")
+        ConsoleLog.shared.log("\(getTag(level: "DEBUG"))\(message)", terminator: terminator)
     }
 }

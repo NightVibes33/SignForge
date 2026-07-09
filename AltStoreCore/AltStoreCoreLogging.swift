@@ -28,7 +28,7 @@ private func getTag(level: String) -> String {
 internal func debugLog(_ text: @autoclosure () -> String) {
     let message = text()
     if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
-        print(message)
+        print(message, terminator: "")
     } else {
         print("\(getTag(level: "DEBUG"))\(message)")
     }
@@ -37,6 +37,11 @@ internal func debugLog(_ text: @autoclosure () -> String) {
 @inline(__always)
 internal func verboseLog(_ text: @autoclosure () -> String) {
     if AltStoreCoreLogging.isLoggingEnabled {
-        print("\(getTag(level: "TRACE"))\(text())")
+        let message = text()
+        if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
+            print(message, terminator: "")
+        } else {
+            print("\(getTag(level: "TRACE"))\(message)")
+        }
     }
 }

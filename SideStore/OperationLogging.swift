@@ -17,7 +17,7 @@ internal extension OperationLogging {
     func debugLog(_ text: @autoclosure () -> String) {
         let message = text()
         if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
-            print(message)
+            print(message, terminator: "")
         } else {
             print("\(getOperationsLogTag(level: "DEBUG"))\(message)")
         }
@@ -25,6 +25,11 @@ internal extension OperationLogging {
 
     func verboseLog(_ text: @autoclosure () -> String) {
         guard OperationsLoggingControl.getFromDatabase(for: type(of: self)) else { return }
-        print("\(getOperationsLogTag(level: "TRACE"))\(text())")
+        let message = text()
+        if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
+            print(message, terminator: "")
+        } else {
+            print("\(getOperationsLogTag(level: "TRACE"))\(message)")
+        }
     }
 }
