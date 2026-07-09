@@ -74,6 +74,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         debugLog("===================================================")
         debugLog("|\(leftPadding)\(dateString)\(rightPadding)|")
         debugLog("===================================================")
+        debugLog("\n")
 
         // Override point for customization after application launch.
 //        UserDefaults.standard.setValue(true, forKey: "com.apple.CoreData.MigrationDebug")
