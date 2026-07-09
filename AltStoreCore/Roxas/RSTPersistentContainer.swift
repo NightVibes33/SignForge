@@ -66,7 +66,7 @@ public class RSTPersistentContainer: NSPersistentContainer {
                 
                 self.progressivelyMigratePersistentStore(to: self.managedObjectModel, configuration: description.configuration, isAsynchronous: description.shouldAddStoreAsynchronously) { error in
                     if let error = error {
-                        print("Migration error: \(error)")
+                        debugLog("Migration error: \(error)")
                     }
                     dispatchGroup.leave()
                 }
@@ -181,7 +181,7 @@ public class RSTPersistentContainer: NSPersistentContainer {
         do {
             try self.persistentStoreCoordinator.destroyPersistentStore(at: temporaryDestinationURL, ofType: description.type, options: description.options)
         } catch {
-            print("Error destroying temporary store: \(error)")
+            debugLog("Error destroying temporary store: \(error)")
         }
         
         try self._progressivelyMigratePersistentStore(to: model, configuration: configuration)
@@ -265,7 +265,7 @@ public class RSTPersistentContainer: NSPersistentContainer {
             do {
                 try context.save()
             } catch {
-                print("Context save error: \(error)")
+                debugLog("Context save error: \(error)")
             }
             self.pendingSaveParentBackgroundContexts.remove(context)
         }

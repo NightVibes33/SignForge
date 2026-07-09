@@ -72,16 +72,16 @@ public extension DatabaseManager
         
         container.loadPersistentStores { description, error in
             if let error = error {
-                print("Failed to load store: \(error)")
+                debugLog("Failed to load store: \(error)")
             } else {
-                print("Store URL: \(description.url ?? URL(string: "unknown")!)")
+                debugLog("Store URL: \(description.url ?? URL(string: "unknown")!)")
             }
             
             semaphore.signal()  // Signal the semaphore to unblock the thread
         }
         
         semaphore.wait()  // Wait for the semaphore signal to unblock the thread
-        print("Persistent store loading complete.")
+        debugLog("Persistent store loading complete.")
     }
     
     class func deleteDatabase() -> Bool
@@ -100,13 +100,13 @@ public extension DatabaseManager
 
             guard let databaseStore else
             {
-                print("\nDatabase Delete request FAILED: databaseStore = nil\n")
+                debugLog("\nDatabase Delete request FAILED: databaseStore = nil\n")
                 return false
             }
 
             guard let databaseStoreURL = databaseStore.url else
             {
-                print("\nDatabase Delete request FAILED: databaseStoreURL = nil\n")
+                debugLog("\nDatabase Delete request FAILED: databaseStoreURL = nil\n")
                 return false
             }
             
@@ -128,11 +128,11 @@ public extension DatabaseManager
             // just be sure
             try? FileManager.default.removeItem(at: databaseStoreURL)
                 
-            print("\nDatabase Delete: SUCCEEDED\n")
+            debugLog("\nDatabase Delete: SUCCEEDED\n")
             
             return true
         }catch{
-            print("\nDatabase Delete request FAILED: \(error)\n")
+            debugLog("\nDatabase Delete request FAILED: \(error)\n")
             return false
         }
     }
@@ -178,12 +178,12 @@ public extension DatabaseManager
             {
                 do
                 {
-                    print("!!! Purging database for preview...")
+                    debugLog("!!! Purging database for preview...")
                     try FileManager.default.removeItem(at: PersistentContainer.defaultDirectoryURL())
                 }
                 catch
                 {
-                    print("Failed to remove database directory for preview.", error)
+                    debugLog("Failed to remove database directory for preview. \(error)")
                 }
             }
             #endif
@@ -239,7 +239,7 @@ public extension DatabaseManager
             }
             catch
             {
-                print("Failed to save when signing out.", error)
+                debugLog("Failed to save when signing out. \(error)")
                 completionHandler(error)
             }
         }
@@ -286,7 +286,7 @@ public extension DatabaseManager
             }
             catch
             {
-                print("Failed to update source order. \(error.localizedDescription)")
+                debugLog("Failed to update source order. \(error.localizedDescription)")
             }
             
             do
@@ -304,7 +304,7 @@ public extension DatabaseManager
             }
             catch
             {
-                print("Failed to update app order. \(error.localizedDescription)")
+                debugLog("Failed to update app order. \(error.localizedDescription)")
             }
         }
     }
@@ -428,7 +428,7 @@ private extension DatabaseManager
                         let entitlements = altPluginApp.entitlements
                         guard let appId = entitlements[ALTEntitlement.applicationIdentifier] as? String else {
                             installedApp.useMainProfile = false
-                            print("no ALTEntitlementApplicationIdentifier???")
+                            debugLog("no ALTEntitlementApplicationIdentifier???")
                             break
                         }
                         
@@ -511,7 +511,7 @@ private extension DatabaseManager
                         }
                         catch
                         {
-                            print("Failed to copy SideStore app bundle to its proper location.", error)
+                            debugLog("Failed to copy SideStore app bundle to its proper location. \(error)")
                         }
                     }
                 }
@@ -615,7 +615,7 @@ private extension DatabaseManager
             }
             catch
             {
-                print("Failed to migrate database to app group:", error)
+                debugLog("Failed to migrate database to app group: \(error)")
                 finish(.failure(error))
             }
         }

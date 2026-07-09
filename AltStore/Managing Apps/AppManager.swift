@@ -214,7 +214,7 @@ extension AppManager
             }
             catch
             {
-                print("Error while fetching installed apps.", error)
+                debugLog("Error while fetching installed apps. \(error)")
             }
             #endif
             
@@ -234,19 +234,19 @@ extension AppManager
                         
                         if isDirectory && !installedAppBundleIDs.contains(bundleID) && !self.isActivelyManagingApp(withBundleID: bundleID)
                         {
-                            print("DELETING CACHED APP:", bundleID)
+                            debugLog("DELETING CACHED APP: \(bundleID)")
                             try FileManager.default.removeItem(at: appDirectory)
                         }
                     }
                     catch
                     {
-                        print("Failed to remove cached app directory.", error)
+                        debugLog("Failed to remove cached app directory. \(error)")
                     }
                 }
             }
             catch
             {
-                print("Failed to remove cached apps.", error)
+                debugLog("Failed to remove cached apps. \(error)")
             }
         }
     }
@@ -383,12 +383,12 @@ extension AppManager
             do
             {
                 _ = LoggedError(error: sanitizedError, app: app, operation: operation, context: context)
-                print("AppManager.log(): error:\(sanitizedError) app:\(app.bundleIdentifier) operation:\(operation)")
+                debugLog("AppManager.log(): error:\(sanitizedError) app:\(app.bundleIdentifier) operation:\(operation)")
                 try context.save()
             }
             catch let saveError
             {
-                print("[ALTLog] Failed to log error \(sanitizedError.domain) code \(sanitizedError.code) for \(app.bundleIdentifier):", saveError)
+                debugLog("[ALTLog] Failed to log error \(sanitizedError.domain) code \(sanitizedError.code) for \(app.bundleIdentifier): \(saveError)")
             }
         }
     }
@@ -630,7 +630,7 @@ extension AppManager
     {
         let authenticationOperation = self.authenticate(presentingViewController: nil) { (result) in
             // result contains name, email, auth token, OTP and other possibly personal/account specific info. we don't want this logged
-            //print("Authenticated for fetching App IDs with result:", result)
+            //debugLog("Authenticated for fetching App IDs with result: \(result)")
         }
         
         let fetchAppIDsOperation = FetchAppIDsOperation(context: authenticationOperation.context)
@@ -664,9 +664,9 @@ extension AppManager
                 do
                 {
                     let (_, context) = try result.get()
-//                    print("\n\n\n\(context.insertedObjects)\n\n\n")
-//                    print("\n\n\n\(context.updatedObjects)\n\n\n")
-//                    print("\n\n\n\(context.deletedObjects)\n\n\n")
+//                    debugLog("\n\n\n\(context.insertedObjects)\n\n\n")
+//                    debugLog("\n\n\n\(context.updatedObjects)\n\n\n")
+//                    debugLog("\n\n\n\(context.deletedObjects)\n\n\n")
                     try context.save()
                     
                     DispatchQueue.main.async {
@@ -694,7 +694,7 @@ extension AppManager
                         }
                         catch
                         {
-                            print("Failed to assign error \(sanitizedError.localizedErrorCode) to source \(sourceID). \(error.localizedDescription)")
+                            debugLog("Failed to assign error \(sanitizedError.localizedErrorCode) to source \(sourceID). \(error.localizedDescription)")
                         }
                     }
                     
@@ -1036,7 +1036,7 @@ extension AppManager
             switch result
             {
             case .success: break
-            case .failure(let error): print("Failed to remove app backup.", error)
+            case .failure(let error): debugLog("Failed to remove app backup. \(error)")
             }
             
             // Throw the error from removeAppOperation,
@@ -1438,7 +1438,7 @@ private extension AppManager
                 context.error = error
             case .success(let provisioningProfiles):
                 context.provisioningProfiles = provisioningProfiles
-                print("PROVISIONING PROFILES \(context.provisioningProfiles)")
+                debugLog("PROVISIONING PROFILES \(context.provisioningProfiles)")
             }
         }
         fetchProvisioningProfilesOperation.addDependency(refreshAnisetteDataOperation)
@@ -1534,7 +1534,7 @@ private extension AppManager
             {
             case .failure(let error):
                 context.error = error
-            case .success(_): print("App reported as installed")
+            case .success(_): debugLog("App reported as installed")
             }
         }
         sendAppOperation.addDependency(resignAppOperation)
@@ -1616,7 +1616,7 @@ private extension AppManager
                 try FileManager.default.createDirectory(at: resignedAppsURL, withIntermediateDirectories: true, attributes: nil)
             }
         } catch {
-            print("Failed to create ResignedApps folder: \(error)")
+            debugLog("Failed to create ResignedApps folder: \(error)")
             return
         }
         
@@ -1633,16 +1633,16 @@ private extension AppManager
                 try FileManager.default.removeItem(at: destinationURL)
             }
         } catch {
-            print("Failed to delete existing file at destination: \(error)")
+            debugLog("Failed to delete existing file at destination: \(error)")
             return
         }
         
         // Copy the file to the ResignedApps folder
         do {
             try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            print("File copied to: \(destinationURL.path)")
+            debugLog("File copied to: \(destinationURL.path)")
         } catch {
-            print("Failed to copy file: \(error)")
+            debugLog("Failed to copy file: \(error)")
         }
     }
     
@@ -1662,7 +1662,7 @@ private extension AppManager
         {
             if group.context.presentingViewController == nil
             {
-                print("AppManager.refresh: Certificate mismatch detected in headless mode for \(app.name). Active: \(activeSerial), App: \(appSerial). Auto-resigning instead of throwing mismatch error.")
+                debugLog("AppManager.refresh: Certificate mismatch detected in headless mode for \(app.name). Active: \(activeSerial), App: \(appSerial). Auto-resigning instead of throwing mismatch error.")
                 let resignProgress = self._install(app, operation: .resign(app), group: group, reviewPermissions: .none) { (result) in
                     completionHandler(result)
                 }
@@ -1670,7 +1670,7 @@ private extension AppManager
             }
             else
             {
-                print("AppManager.refresh: Certificate mismatch detected for \(app.name). Active Certificate SN: \(activeSerial), Target Certificate SN: \(appSerial).")
+                debugLog("AppManager.refresh: Certificate mismatch detected for \(app.name). Active Certificate SN: \(activeSerial), Target Certificate SN: \(appSerial).")
                 let errMessage = "The certificate used to sign “\(app.name)” has been revoked or changed. Please reinstall the app to re-sign it with the new active certificate."
                 context.error = OperationError.refreshAppFailed(message: errMessage)
             }
@@ -1690,7 +1690,7 @@ private extension AppManager
                 if !isMatching {
                     let errMessage = "AppManager.refresh: App Extensions in DB and Disk are matching: \(isMatching)\n"
                                    + "AppManager.refresh: dbAppEx: \(dbAppExNames); diskAppEx: \(String(describing: diskAppExNames))\n"
-                    print(errMessage)
+                    debugLog(errMessage)
                     context.error = OperationError.refreshAppFailed(message: errMessage)
                 }
             }
@@ -1841,7 +1841,7 @@ private extension AppManager
                         {
                         case .failure(let error):
                             // Don't report error, since it doesn't really matter.
-                            print("Failed to delete app backup.", error)
+                            debugLog("Failed to delete app backup. \(error)")
                             
                         case .success: break
                         }
@@ -2060,7 +2060,7 @@ private extension AppManager
                                 }
                                 catch
                                 {
-                                    print("Failed to write app icon data.", error)
+                                    debugLog("Failed to write app icon data. \(error)")
                                 }
                             }
                         }
@@ -2075,7 +2075,7 @@ private extension AppManager
                 }
                 catch
                 {
-                    print(error)
+                    debugLog("\(error)")
                     
                     context.error = error
                 }
@@ -2152,7 +2152,7 @@ private extension AppManager
             }
             catch
             {
-                print("Failed to save InstalledApp to database. \(error.localizedDescription)")
+                debugLog("Failed to save InstalledApp to database. \(error.localizedDescription)")
                 throw error
             }
         }
@@ -2422,7 +2422,7 @@ private extension AppManager {
                    !contents.isEmpty {
                     
                     isFirstPrompt = false
-                    print("[PairingFile] Automatically reloading pairing file from disk...")
+                    debugLog("[PairingFile] Automatically reloading pairing file from disk...")
                     do {
                         try await reinitializePairingData(contents)
                         try await AppManager.restartMuxerServices()
@@ -2449,7 +2449,7 @@ private extension AppManager {
                 )
                 
                 if let contents = try? String(contentsOf: url), !contents.isEmpty {
-                    print("[AppManager] Reloading updated pairing file after user import...")
+                    debugLog("[AppManager] Reloading updated pairing file after user import...")
                     try? await reinitializePairingData(contents)
                 }
             }

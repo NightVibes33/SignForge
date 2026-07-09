@@ -283,7 +283,7 @@ private extension FeaturedViewController
             if let error, let dataSource
             {
                 let app = dataSource.item(at: indexPath)
-                print("Failed to app icon from \(app.iconURL). \(error.localizedDescription)")
+                debugLog("Failed to app icon from \(app.iconURL). \(error.localizedDescription)")
             }
         }
         
@@ -422,7 +422,7 @@ private extension FeaturedViewController
             if let error = error, let dataSource
             {
                 let app = dataSource.item(at: indexPath)
-                print("Failed to app icon from \(app.iconURL). \(error.localizedDescription)")
+                debugLog("Failed to app icon from \(app.iconURL). \(error.localizedDescription)")
             }
         }
         
@@ -525,7 +525,7 @@ private extension FeaturedViewController
                     toastView.show(in: self)
                     
                 case .success:
-                    print("Installed app \(storeApp.bundleIdentifier) from FeaturedViewController.")
+                    debugLog("Installed app \(storeApp.bundleIdentifier) from FeaturedViewController.")
                 }
                 
                 for indexPath in self.collectionView.indexPathsForVisibleItems
@@ -703,7 +703,7 @@ extension FeaturedViewController
         }
         catch let error as NSError
         {
-            print("Failed to fetch sources for preview. \(error.localizedDescription)")
+            debugLog("Failed to fetch sources for preview. \(error.localizedDescription)")
         }
     }
     
@@ -736,7 +736,7 @@ extension FeaturedViewController
             }
             catch
             {
-                print("Failed to fetch known sources for preview. \(error.localizedDescription)")
+                debugLog("Failed to fetch known sources for preview. \(error.localizedDescription)")
             }
         }
     }

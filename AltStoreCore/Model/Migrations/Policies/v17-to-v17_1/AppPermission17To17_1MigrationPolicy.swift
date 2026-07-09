@@ -17,7 +17,7 @@ class AppPermission17To17_1MigrationPolicy: NSEntityMigrationPolicy {
         
         // Get the destination AppPermission instance that was created
         guard let destinationPermission = manager.destinationInstances(forEntityMappingName: mapping.name, sourceInstances: [sInstance]).first else {
-            print("Failed to locate destination AppPermission instance")
+            debugLog("Failed to locate destination AppPermission instance")
             return
         }
         
@@ -56,7 +56,7 @@ class AppPermission17To17_1MigrationPolicy: NSEntityMigrationPolicy {
                 
         // Retrieve the source storeApp from the source appPermission
         guard let storeApp = dInstance.value(forKey: #keyPath(AppPermission.app)) as? NSManagedObject else {
-            print("Destination \(AppPermission.description()) has no storeApp")
+            debugLog("Destination \(AppPermission.description()) has no storeApp")
             return
         }
         

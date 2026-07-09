@@ -68,7 +68,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         await SideJITManager.shared.checkAndPromptIfNeeded(presentingVC: self)
         if #available(iOS 17, *), UserDefaults.standard.sidejitenable {
             await SideJITManager.shared.askForNetwork()
-            print("SideJITServer Enabled")
+            debugLog("SideJITServer Enabled")
         }
 
         #if !targetEnvironment(simulator)
@@ -100,21 +100,21 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
                 if error.isMinimuxerPairingFile {
                     await handleInvalidPairingFile(error: error)
                 } else {
-                    print("[SideStore] fetchUDID failed but not due to invalid pairing: \(error)")
+                    debugLog("[SideStore] fetchUDID failed but not due to invalid pairing: \(error)")
                 }
             }
         } catch {
             if error.isMinimuxerPairingFile {
                 await handleInvalidPairingFile(error: error)
             } else {
-                print("[SideStore] minimuxerStart failed with general error: \(error).")
+                debugLog("[SideStore] minimuxerStart failed with general error: \(error).")
                 await displayError("minimuxer failed to start, please restart SideStore. \((error as? LocalizedError)?.failureReason ?? "UNKNOWN ERROR")")
             }
         }
     }
 
     nonisolated func handleInvalidPairingFile(error: Error) async {
-        print("[SideStore] Invalid pairing file detected: \(error)")
+        debugLog("[SideStore] Invalid pairing file detected: \(error)")
         await showPairingPrompt(isRetry: true)
     }
 
@@ -187,10 +187,10 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         }
         
         do {
-            print("[LaunchViewController] User picked pairing file from: \(url.path)")
+            debugLog("[LaunchViewController] User picked pairing file from: \(url.path)")
             let data = try Data(contentsOf: url)
             guard let pairingString = String(data: data, encoding: .utf8) else {
-                print("[LaunchViewController] Unable to read pairing file")
+                debugLog("[LaunchViewController] Unable to read pairing file")
                 self.showPairingPrompt(isRetry: true)
                 return
             }
@@ -200,14 +200,14 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
                 try? fm.removeItem(at: documentsPath)
             }
             try pairingString.write(to: documentsPath, atomically: true, encoding: .utf8)
-            print("[LaunchViewController] Successfully copied and saved pairing file to: \(documentsPath.path)")
+            debugLog("[LaunchViewController] Successfully copied and saved pairing file to: \(documentsPath.path)")
             UserDefaults.standard.isPairingReset = false
             
             Task{
                 await self.start_minimuxer_threads(pairingString)
             }
         } catch {
-            print("[LaunchViewController] Error importing pairing file: \(error)")
+            debugLog("[LaunchViewController] Error importing pairing file: \(error)")
             self.showPairingPrompt(isRetry: true)
         }
     }
@@ -220,7 +220,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
 
     @MainActor
     func displayError(_ msg: String) {
-        print(msg)
+        debugLog(msg)
         let alert = UIAlertController(title: "Error launching SideStore", message: msg, preferredStyle: .alert)
         self.present(alert, animated: true)
     }
@@ -229,12 +229,12 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         _ = file.startAccessingSecurityScopedResource()
         defer { file.stopAccessingSecurityScopedResource() }
         guard let accountD = try? Data(contentsOf: file) else {
-            return print("Could not parse data from file \(file)")
+            return debugLog("Could not parse data from file \(file)")
         }
         guard let account = try? Foundation.JSONDecoder().decode(ImportedAccount.self, from: accountD) else {
-            return print("Could not parse data from file \(file)")
+            return debugLog("Could not parse data from file \(file)")
         }
-        print("We want to import this account probably: \(account)")
+        debugLog("We want to import this account probably: \(account)")
         if remove {
             try? FileManager.default.removeItem(at: file)
         }
@@ -291,11 +291,11 @@ extension LaunchViewController {
         AppManager.shared.update()
         AppManager.shared.updateAllSources { result in
             guard case .failure(let error) = result else { return }
-            print("Failed to update sources on launch. \(error.localizedDescription)")
+            debugLog("Failed to update sources on launch. \(error.localizedDescription)")
             
             
             let errorDesc = ErrorProcessing(.fullError).getDescription(error: error as NSError)
-            print("Failed to update sources on launch. \(errorDesc)")
+            debugLog("Failed to update sources on launch. \(errorDesc)")
             
             var mode: ToastView.InfoMode = .fullError
             if String(describing: error).contains("The Internet connection appears to be offline"){
@@ -344,7 +344,7 @@ extension LaunchViewController {
     func updateKnownSources() {
         AppManager.shared.updateKnownSources { result in
             switch result {
-            case .failure(let error): print("[ALTLog] Failed to update known sources:", error)
+            case .failure(let error): debugLog("[ALTLog] Failed to update known sources: \(error)")
             case .success((_, let blockedSources)):
                 DatabaseManager.shared.persistentContainer.performBackgroundTask { context in
                     let blockedSourceIDs = Set(blockedSources.lazy.map { $0.identifier })
@@ -446,7 +446,7 @@ final class SideJITManager {
                 presentingVC.present(alert, animated: true)
             }
         } catch {
-            print("Cannot find sideJITServer")
+            debugLog("Cannot find sideJITServer")
         }
     }
 
@@ -456,9 +456,9 @@ final class SideJITManager {
         guard let url = URL(string: "\(SJSURL)/re/") else { return }
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
-            print("data: \(data), response: \(response)")
+            debugLog("data: \(data), response: \(response)")
         } catch {
-            print("error: \(error)")
+            debugLog("error: \(error)")
         }
     }
 

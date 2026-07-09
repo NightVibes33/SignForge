@@ -166,7 +166,7 @@ private extension CollapsingTextView
         }
         catch
         {
-            print("[ALTLog] Failed to update CollapsingTextView line spacing:", error)
+            debugLog("[ALTLog] Failed to update CollapsingTextView line spacing: \(error)")
         }
     }
 }

@@ -19,7 +19,8 @@ extension BackupAppOperation {
 }
 
 @objc(BackupAppOperation)
-class BackupAppOperation: ResultOperation<Void> {
+class BackupAppOperation: ResultOperation<Void>, OperationLogging {
+
     let action: Action
     let context: InstallAppOperationContext
     
@@ -111,7 +112,7 @@ class BackupAppOperation: ResultOperation<Void> {
            let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: altstoreAppGroup) {
             let logFileURL = containerURL.appendingPathComponent("Logs", isDirectory: true).appendingPathComponent("SideBackup.log")
             if let logContents = try? String(contentsOf: logFileURL, encoding: .utf8), !logContents.isEmpty {
-                print("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
+                debugLog("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
             }
         }
 
@@ -172,17 +173,6 @@ class BackupAppOperation: ResultOperation<Void> {
             
             let result = notification.userInfo?[AppDelegate.appBackupResultKey] as? Result<Void, Error> ?? .failure(OperationError.unknownResult)
             self?.finish(result)
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: BackupAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

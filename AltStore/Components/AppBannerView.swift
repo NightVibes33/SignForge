@@ -186,7 +186,7 @@ extension AppBannerView
                     Nuke.loadImage(with: iconURL, into: self.sourceIconImageView) { result in
                         switch result
                         {
-                        case .failure(let error): print("Failed to fetch source icon from \(iconURL). \(error.localizedDescription)")
+                        case .failure(let error): debugLog("Failed to fetch source icon from \(iconURL). \(error.localizedDescription)")
                         case .success: self.sourceIconImageView.backgroundColor = .white // In case icon has transparent background.
                         }
                     }

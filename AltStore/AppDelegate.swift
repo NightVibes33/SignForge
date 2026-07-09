@@ -67,14 +67,14 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         let rightPadding = String(repeating: " ", count: max(0, paddingCount - leftPadding.count))
 
         consoleLog.startCapturing()
-        print("===================================================")
-        print("|               App is Starting up                |")
-        print("===================================================")
-        print("| Console Logger started capturing output streams |")
-        print("===================================================")
-        print("|\(leftPadding)\(dateString)\(rightPadding)|")
-        print("===================================================")
-        print("\n ")
+        debugLog("===================================================")
+        debugLog("|               App is Starting up                |")
+        debugLog("===================================================")
+        debugLog("| Console Logger started capturing output streams |")
+        debugLog("===================================================")
+        debugLog("|\(leftPadding)\(dateString)\(rightPadding)|")
+        debugLog("===================================================")
+        debugLog("\n ")
 
         // Override point for customization after application launch.
 //        UserDefaults.standard.setValue(true, forKey: "com.apple.CoreData.MigrationDebug")
@@ -98,11 +98,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         DatabaseManager.shared.start { (error) in
             if let error = error
             {
-                print("Failed to start DatabaseManager. Error:", error as Any)
+                debugLog("Failed to start DatabaseManager. Error: \(error)")
             }
             else
             {
-                print("Started DatabaseManager.")
+                debugLog("Started DatabaseManager.")
             }
         }
         
@@ -147,7 +147,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             switch result
             {
             case .success: break
-            case .failure(let error): print("[ALTLog] Failed to purge logged errors before \(midnightOneMonthAgo).", error)
+            case .failure(let error): debugLog("[ALTLog] Failed to purge logged errors before \(midnightOneMonthAgo). \(error)")
             }
         }
              
@@ -186,12 +186,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func applicationWillTerminate(_ application: UIApplication) {
         // Stop console logging and clean up resources
-        print("\n ")
-        print("===================================================")
-        print("| Console Logger stopped capturing output streams |")
-        print("===================================================")
-        print("|           App is being terminated               |")
-        print("===================================================")
+        debugLog("\n ")
+        debugLog("===================================================")
+        debugLog("| Console Logger stopped capturing output streams |")
+        debugLog("===================================================")
+        debugLog("|           App is being terminated               |")
+        debugLog("===================================================")
         consoleLog.stopCapturing()
     }
 }
@@ -235,7 +235,7 @@ private extension AppDelegate
             }
             catch
             {
-                print("Failed to create image disk cache. Falling back to URL cache. \(error.localizedDescription)")
+                debugLog("Failed to create image disk cache. Falling back to URL cache. \(error.localizedDescription)")
             }
         }
         
@@ -243,7 +243,7 @@ private extension AppDelegate
         
         if let dataCache = ImagePipeline.shared.configuration.dataCache as? DataCache, #available(iOS 15, *)
         {
-            print("Current image cache size: \(dataCache.totalSize.formatted(.byteCount(style: .file)))")
+            debugLog("Current image cache size: \(dataCache.totalSize.formatted(.byteCount(style: .file)))")
         }
     }
     
@@ -264,7 +264,7 @@ private extension AppDelegate
             do {
                 try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                print("[ALTLog] Failed to create temp directory for imported IPA: \(error)")
+                debugLog("[ALTLog] Failed to create temp directory for imported IPA: \(error)")
                 return false
             }
 
@@ -273,7 +273,7 @@ private extension AppDelegate
             do {
                 try FileManager.default.copyItem(at: url, to: ipaURL)
             } catch {
-                print("[ALTLog] Failed to copy imported IPA: \(error)")
+                debugLog("[ALTLog] Failed to copy imported IPA: \(error)")
                 return false
             }
 
@@ -315,7 +315,9 @@ extension AppDelegate
         }
         
         let token = tokenParts.joined()
-        print("Push Token:", token)
+        #if DEBUG
+        debugLog("Push Token: \(token)")
+        #endif
     }
     
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void)
@@ -343,7 +345,7 @@ extension AppDelegate
         BackgroundTaskManager.shared.performExtendedBackgroundTask { (taskResult, taskCompletionHandler) in
             if let error = taskResult.error
             {
-                print("Error starting extended background task. Aborting.", error)
+                debugLog("Error starting extended background task. Aborting. \(error)")
                 backgroundFetchCompletionHandler(.failed)
                 taskCompletionHandler()
                 return
@@ -493,7 +495,7 @@ private extension AppDelegate
             }
             catch
             {
-                print("Error fetching apps:", error)
+                debugLog("Error fetching apps: \(error)")
                 completionHandler(.failure(error))
             }
         }

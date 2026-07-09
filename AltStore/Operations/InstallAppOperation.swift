@@ -16,7 +16,8 @@ import AltSign
 let shortcutURLonDelay = URL(string: "shortcuts://run-shortcut?name=TurnOnDataDelay")!
 
 @objc(InstallAppOperation)
-final class InstallAppOperation: ResultOperation<InstalledApp>, @unchecked Sendable {
+final class InstallAppOperation: ResultOperation<InstalledApp>, OperationLogging, @unchecked Sendable {
+
     let context: InstallAppOperationContext
     
     private var didCleanUp = false
@@ -305,17 +306,6 @@ final class InstallAppOperation: ResultOperation<InstalledApp>, @unchecked Senda
             try FileManager.default.removeItem(at: self.context.temporaryDirectory)
         } catch {
             debugLog("Failed to remove temporary directory. \(error)")
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: InstallAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

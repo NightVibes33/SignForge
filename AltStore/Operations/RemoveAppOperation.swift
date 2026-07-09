@@ -11,7 +11,8 @@ import AltStoreCore
 import CoreData
 
 @objc(RemoveAppOperation)
-final class RemoveAppOperation: ResultOperation<InstalledApp>
+final class RemoveAppOperation: ResultOperation<InstalledApp>, OperationLogging
+
 {
     let context: InstallAppOperationContext
     
@@ -72,17 +73,6 @@ final class RemoveAppOperation: ResultOperation<InstalledApp>
         let installedApp = backgroundContext.object(with: installedApp.objectID) as! InstalledApp
         installedApp.isActive = false
         return installedApp
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RemoveAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }
 

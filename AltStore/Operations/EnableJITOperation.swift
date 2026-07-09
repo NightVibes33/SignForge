@@ -27,7 +27,8 @@ protocol EnableJITContext
 }
 
 @available(iOS 14, *)
-final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>, @unchecked Sendable
+final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>, OperationLogging, @unchecked Sendable
+
 {
     let context: Context
     
@@ -116,17 +117,6 @@ final class EnableJITOperation<Context: EnableJITContext>: ResultOperation<Void>
                 }
             }
             if let error = lastError { throw error }
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: type(of: self))
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

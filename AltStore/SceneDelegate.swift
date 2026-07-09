@@ -79,7 +79,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate
             switch result
             {
             case .success: break
-            case .failure(let error): print("[ALTLog] Failed to purge logged errors before \(midnightOneMonthAgo).", error)
+            case .failure(let error): debugLog("[ALTLog] Failed to purge logged errors before \(midnightOneMonthAgo). \(error)")
             }
         }
         
@@ -103,7 +103,7 @@ private extension SceneDelegate
             // Copy the shared .ipa out of its security-scoped location into a
             // temporary directory we own, so it stays readable while signing.
             if !context.url.startAccessingSecurityScopedResource() {
-                print("[ALTLog] Failed to access security-scoped resource for imported IPA")
+                debugLog("[ALTLog] Failed to access security-scoped resource for imported IPA")
                 return
             }
             defer { context.url.stopAccessingSecurityScopedResource() }
@@ -112,7 +112,7 @@ private extension SceneDelegate
             do {
                 try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                print("[ALTLog] Failed to create temp directory for imported IPA: \(error)")
+                debugLog("[ALTLog] Failed to create temp directory for imported IPA: \(error)")
                 return
             }
 
@@ -121,7 +121,7 @@ private extension SceneDelegate
             do {
                 try FileManager.default.copyItem(at: context.url, to: ipa)
             } catch {
-                print("[ALTLog] Failed to copy imported IPA: \(error)")
+                debugLog("[ALTLog] Failed to copy imported IPA: \(error)")
                 return
             }
 
@@ -165,7 +165,7 @@ func exportPairingFile(_ urlname: String) {
         let urlStr = "\(urlname)://pairingFile?data=$(BASE64_PAIRING)"
         let finished = urlStr.replacingOccurrences(of: "$(BASE64_PAIRING)", with: encodedCert, options: .literal, range: nil)
         
-        print(finished)
+        debugLog(finished)
         guard let callbackUrl = URL(string: finished) else {
             let toastView = ToastView(text: NSLocalizedString("Failed to initialize callback URL!", comment: ""), detailText: nil)
             toastView.show(in: viewcontroller)

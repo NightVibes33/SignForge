@@ -13,7 +13,8 @@ import AltStoreCore
 import AltSign
 
 @objc(DownloadAppOperation)
-final class DownloadAppOperation: ResultOperation<ALTApplication> {
+final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogging {
+
     @Managed
     private(set) var app: AppProtocol
 
@@ -330,17 +331,6 @@ final class DownloadAppOperation: ResultOperation<ALTApplication> {
         } catch let error as NSError {
             let localizedFailure = String(format: NSLocalizedString("The dependency '%@' could not be downloaded.", comment: ""), dependency.preferredFilename)
             throw error.withLocalizedFailure(localizedFailure)
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: DownloadAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

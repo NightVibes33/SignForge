@@ -137,7 +137,7 @@ final class AppViewController: UIViewController
                 switch result
                 {
                 case .success: imageView?.isIndicatingActivity = false
-                case .failure(let error): print("[ALTLog] Failed to load app icons.", error)
+                case .failure(let error): debugLog("[ALTLog] Failed to load app icons. \(error)")
                 }
             }
         }
@@ -656,7 +656,7 @@ extension AppViewController
             DispatchQueue.main.async {
                 switch result
                 {
-                case .success: print("Updated app from AppViewController:", installedApp.bundleIdentifier)
+                case .success: debugLog("Updated app from AppViewController: \(installedApp.bundleIdentifier)")
                 case .failure(OperationError.cancelled): break
                 case .failure(let error):
                     let toastView = ToastView(error: error)

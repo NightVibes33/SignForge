@@ -309,7 +309,7 @@ private extension SourcesViewController
             
             if let error = error
             {
-                print("Error loading image:", error)
+                debugLog("Error loading image: \(error)")
             }
         }
         
@@ -556,7 +556,7 @@ extension SourcesViewController: NSFetchedResultsControllerDelegate
         }
         catch
         {
-            print("Preview failed to fetch sources:", error)
+            debugLog("Preview failed to fetch sources: \(error)")
         }
     }
     

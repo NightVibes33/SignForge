@@ -117,7 +117,7 @@ class Source17To17_1MigrationPolicy: NSEntityMigrationPolicy
         
         // Get the destination Source instance that was created
         guard let dInstance = manager.destinationInstances(forEntityMappingName: mapping.name, sourceInstances: [sInstance]).first else {
-            print("Failed to locate destination Source instance")
+            debugLog("Failed to locate destination Source instance")
             return
         }
         
@@ -173,16 +173,16 @@ class Source17To17_1MigrationPolicy: NSEntityMigrationPolicy
             
             for case let track as NSManagedObject in app.storeAppReleaseTracks ?? []
             {
-//                print("Source_17_1MigrationPolicy: processing track \(track.value(forKey: "track")!)")
+//                debugLog("Source_17_1MigrationPolicy: processing track \(track.value(forKey: "track")!)")
                 track.setValue(sourceID, forKey: #keyPath(ReleaseTrack._sourceID))
                 
                 guard let releases = track.value(forKey: #keyPath(ReleaseTrack._releases)) as? NSOrderedSet else {
-//                    print("Source_17_1MigrationPolicy: releases not found for track: \(track.value(forKey: "track")!)")
+//                    debugLog("Source_17_1MigrationPolicy: releases not found for track: \(track.value(forKey: "track")!)")
                     continue
                 }
                 
                 for case let version as NSManagedObject in releases {
-//                    print("Source_17_1MigrationPolicy: updating sourceID for version: \(version.value(forKey: "version")!)")
+//                    debugLog("Source_17_1MigrationPolicy: updating sourceID for version: \(version.value(forKey: "version")!)")
                     version.setValue(sourceID, forKey: #keyPath(AppVersion.sourceID))
                 }
             }

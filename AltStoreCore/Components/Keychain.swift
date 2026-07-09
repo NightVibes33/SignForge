@@ -119,7 +119,7 @@ public class Keychain
             try? self.keychain.remove(privateKeyKey)
             try? self.keychain.remove(serialNumberKey)
             
-            print("[Keychain] Successfully migrated legacy certificate and private key to PKCS12 format and cleared legacy keys.")
+            debugLog("[Keychain] Successfully migrated legacy certificate and private key to PKCS12 format and cleared legacy keys.")
         }
     }
     

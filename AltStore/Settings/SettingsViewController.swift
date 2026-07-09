@@ -274,12 +274,12 @@ final class SettingsViewController: UITableViewController
         _ = file.startAccessingSecurityScopedResource()
         defer { file.stopAccessingSecurityScopedResource() }
         guard let accountD = try? Data(contentsOf: file) else {
-            return print("Could not parse data from file \(file)")
+            return debugLog("Could not parse data from file \(file)")
         }
         guard let account = try? Foundation.JSONDecoder().decode(ImportedAccount.self, from: accountD) else {
-            return print("Could not parse data from file \(file)")
+            return debugLog("Could not parse data from file \(file)")
         }
-        print("We want to import this account probably: \(account)")
+        debugLog("We want to import this account probably: \(account)")
         if remove {
             try? FileManager.default.removeItem(at: file)
         }
@@ -317,11 +317,11 @@ final class SettingsViewController: UITableViewController
               let identifier = Keychain.shared.identifier,
               let adiPB = Keychain.shared.adiPb else {
             #if DEBUG
-            print(Keychain.shared.appleIDEmailAddress ?? "Empty email")
-            print(Keychain.shared.appleIDPassword ?? "Empty password")
-            print(Keychain.shared.signingCertificate ?? "Empty cert")
-            print(Keychain.shared.identifier ?? "Empty identifier")
-            print(Keychain.shared.adiPb ?? "Empty adiPb")
+            debugLog("\(Keychain.shared.appleIDEmailAddress ?? "Empty email")")
+            debugLog("\(Keychain.shared.appleIDPassword ?? "Empty password")")
+            debugLog("\(Keychain.shared.signingCertificate?.description ?? "Empty cert")")
+            debugLog("\(Keychain.shared.identifier ?? "Empty identifier")")
+            debugLog("\(Keychain.shared.adiPb ?? "Empty adiPb")")
             #endif
             return nil
         }
@@ -1002,7 +1002,7 @@ private extension SettingsViewController
             var urlStr = template.replacingOccurrences(of: "$(BASE64_CERT)", with: encodedCert, options: .literal, range: nil)
             urlStr = urlStr.replacingOccurrences(of: "$(PASSWORD)", with: password, options: .literal, range: nil)
             
-            print(urlStr)
+            debugLog(urlStr)
             guard let callbackUrl = URL(string: urlStr) else {
                 let toastView = ToastView(text: NSLocalizedString("Failed to initialize callback URL!", comment: ""), detailText: nil)
                 toastView.show(in: self)
@@ -1336,7 +1336,7 @@ extension SettingsViewController
 
                          let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
                             if let error = error {
-                               print("Error: \(error)")
+                               debugLog("Error: \(error)")
                             } else {
                                // Do nothing with data or response
                             }
@@ -1680,10 +1680,10 @@ extension SettingsViewController
                         var toastView: ToastView?
                         do{
                             let exportedURL = try await CoreDataHelper.exportCoreDataStore()
-                            print("exportSqliteDB: ExportedURL: \(exportedURL)")
+                            debugLog("exportSqliteDB: ExportedURL: \(exportedURL)")
                             toastView = ToastView(text: "Export Successful", detailText: nil)
                         }catch{
-                            print("exportSqliteDB: \(error)")
+                            debugLog("exportSqliteDB: \(error)")
                             toastView = ToastView(error: error)
                         }
                         

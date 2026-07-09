@@ -10,7 +10,8 @@ import Foundation
 import AltStoreCore
 
 @objc(RemoveAppBackupOperation)
-final class RemoveAppBackupOperation: ResultOperation<Void>
+final class RemoveAppBackupOperation: ResultOperation<Void>, OperationLogging
+
 {
     let context: InstallAppOperationContext
     
@@ -87,17 +88,6 @@ final class RemoveAppBackupOperation: ResultOperation<Void>
         } catch {
             debugLog("Failed to remove app backup directory \(backupDirectoryURL.lastPathComponent). \(error.localizedDescription)")
             throw error
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RemoveAppBackupOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

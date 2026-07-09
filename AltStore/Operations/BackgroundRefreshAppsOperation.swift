@@ -44,7 +44,8 @@ private let ReceivedApplicationState: @convention(c) (CFNotificationCenter?, Uns
 }
 
 @objc(BackgroundRefreshAppsOperation)
-final class BackgroundRefreshAppsOperation: ResultOperation<[String: Result<InstalledApp, Error>]> {
+final class BackgroundRefreshAppsOperation: ResultOperation<[String: Result<InstalledApp, Error>]>, OperationLogging {
+
     let installedApps: [InstalledApp]
     private let managedObjectContext: NSManagedObjectContext
     
@@ -265,16 +266,5 @@ final class BackgroundRefreshAppsOperation: ResultOperation<[String: Result<Inst
     
     private func cancelFinishedRefreshingNotification() {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [self.refreshIdentifier])
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: BackgroundRefreshAppsOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }

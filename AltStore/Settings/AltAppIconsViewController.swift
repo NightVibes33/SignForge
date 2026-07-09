@@ -91,7 +91,7 @@ class AltAppIconsViewController: UICollectionViewController
         }
         catch
         {
-            print("Failed to load alternate icons. \(error.localizedDescription)")
+            debugLog("Failed to load alternate icons. \(error.localizedDescription)")
         }
         
         self.dataSource.proxy = self

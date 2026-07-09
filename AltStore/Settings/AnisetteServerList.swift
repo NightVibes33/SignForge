@@ -44,10 +44,10 @@ class AnisetteViewModel: ObservableObject {
                 let anisetteServers = try await AnisetteViewModel.getListOfServers(serverSource: self.source)
                 // Update UI-related state on the main thread
                 self.servers = anisetteServers
-                print("AnisetteViewModel: Server list refresh request completed for sourceURL: \(self.source)")
+                debugLog("AnisetteViewModel: Server list refresh request completed for sourceURL: \(self.source)")
                 completionHandler(.success(()))
             } catch {
-                print("AnisetteViewModel: Server list refresh request Failed for sourceURL: \(self.source) Error: \(error)")
+                debugLog("AnisetteViewModel: Server list refresh request Failed for sourceURL: \(self.source) Error: \(error)")
                 completionHandler(.failure(error))
             }
         }
@@ -77,18 +77,18 @@ class AnisetteViewModel: ObservableObject {
             
             let decoder = Foundation.JSONDecoder()
             let servers = try decoder.decode(AnisetteServerData.self, from: data)
-            print("AnisetteViewModel: JSON Decode successful for sourceURL: \(serverSource) servers: \(servers)")
+            debugLog("AnisetteViewModel: JSON Decode successful for sourceURL: \(serverSource) servers: \(servers)")
             aniServers.append(contentsOf: servers.servers)
             // Store server addresses as list
             UserDefaults.standard.menuAnisetteServersList = aniServers.map(\.address)
             return aniServers
         } catch {
             if let urlError = error as? URLError {
-                print("AnisetteViewModel: URL Error: \(urlError.localizedDescription)")
+                debugLog("AnisetteViewModel: URL Error: \(urlError.localizedDescription)")
             } else if let decodingError = error as? DecodingError {
-                print("AnisetteViewModel: Failed to decode JSON: \(decodingError.localizedDescription)")
+                debugLog("AnisetteViewModel: Failed to decode JSON: \(decodingError.localizedDescription)")
             } else {
-                print("AnisetteViewModel: An unexpected error occurred: \(error.localizedDescription)")
+                debugLog("AnisetteViewModel: An unexpected error occurred: \(error.localizedDescription)")
             }
             throw error // Propagate the error
         }
@@ -130,9 +130,9 @@ struct AnisetteServersView: View {
                                         .foregroundColor(.accentColor)
                                         .onAppear {
                                             UserDefaults.standard.menuAnisetteURL = server.address.wrappedValue
-                                            print(UserDefaults.synchronize(.standard)())
-                                            print(UserDefaults.standard.menuAnisetteURL)
-                                            print(server.address.wrappedValue)
+                                            debugLog("\(UserDefaults.synchronize(.standard)())")
+                                            debugLog("\(UserDefaults.standard.menuAnisetteURL)")
+                                            debugLog("\(server.address.wrappedValue)")
                                         }
                                 }
                             }
@@ -237,12 +237,12 @@ struct AnisetteServersView: View {
                                     Keychain.shared.adiPb = nil
                                 }
                                 #endif
-                                print("Cleared adi.pb from keychain")
+                                debugLog("Cleared adi.pb from keychain")
                                 errorCallback()
                                 presentationMode.wrappedValue.dismiss()
                             },
                             secondaryButton: .cancel(Text("cancel")) {
-                                print("canceled")
+                                debugLog("canceled")
                             }
                         )
                     }

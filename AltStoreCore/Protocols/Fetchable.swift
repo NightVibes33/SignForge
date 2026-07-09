@@ -39,7 +39,7 @@ public extension Fetchable
         }
         catch
         {
-            print("Failed to fetch managed objects. Fetch Request: \(fetchRequest). Error: \(error).")
+            debugLog("Failed to fetch managed objects. Fetch Request: \(fetchRequest). Error: \(error).")
             return []
         }
     }

@@ -158,7 +158,7 @@ private extension PreviewAppScreenshotsViewController
             
             if let error = error
             {
-                print("Error loading image:", error)
+                debugLog("Error loading image: \(error)")
             }
         }
         

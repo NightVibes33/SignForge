@@ -96,7 +96,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     // MARK: - Domain Discovery
     
     func discoverDomains() {
-        print("[BonjourDiscoveryV2] Starting domain discovery...")
+        debugLog("[BonjourDiscoveryV2] Starting domain discovery...")
         isSearching = true
         // Network.framework doesn't browse domains. We present the standard default 'local' domain.
         Task { @MainActor in
@@ -114,7 +114,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     
     func discoverServiceTypes(in domain: String) {
         let domainWithDot = domain.hasSuffix(".") ? domain : domain + "."
-        print("[BonjourDiscoveryV2] Starting service type discovery in domain '\(domainWithDot)'...")
+        debugLog("[BonjourDiscoveryV2] Starting service type discovery in domain '\(domainWithDot)'...")
         stopTypeSearch()
         discoveredTypes.removeAll()
         serviceTypes.removeAll()
@@ -136,7 +136,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
             do {
                 try await Task.sleep(nanoseconds: 5_000_000_000)
                 guard let self = self else { return }
-                print("[BonjourDiscoveryV2] Search timeout reached.")
+                debugLog("[BonjourDiscoveryV2] Search timeout reached.")
                 self.isSearching = false
             } catch {}
         }
@@ -161,7 +161,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
                     if !results.isEmpty {
                         Task { @MainActor in
                             if self.discoveredTypes.insert(t).inserted {
-                                print("[BonjourDiscoveryV2] Fallback found active type: \(t)")
+                                debugLog("[BonjourDiscoveryV2] Fallback found active type: \(t)")
                                 let info = ServiceTypeInfoV2(
                                     rawType: t,
                                     friendlyName: Self.friendlyName(for: t)
@@ -183,7 +183,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     }
     
     func stopTypeSearch() {
-        print("[BonjourDiscoveryV2] Stopping service type discovery.")
+        debugLog("[BonjourDiscoveryV2] Stopping service type discovery.")
         typeBrowser?.stop()
         typeBrowser = nil
         timeoutTask?.cancel()
@@ -201,7 +201,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
         let domainWithDot = domain.hasSuffix(".") ? domain : domain + "."
         let typeWithoutDot = type.hasSuffix(".") ? String(type.dropLast()) : type
         
-        print("[BonjourDiscoveryV2] Starting instance discovery for '\(typeWithoutDot)' in '\(domainWithDot)'...")
+        debugLog("[BonjourDiscoveryV2] Starting instance discovery for '\(typeWithoutDot)' in '\(domainWithDot)'...")
         stopInstanceSearch()
         discoveredInstances.removeAll()
         instances.removeAll()
@@ -251,7 +251,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     }
     
     func stopInstanceSearch() {
-        print("[BonjourDiscoveryV2] Stopping instance discovery.")
+        debugLog("[BonjourDiscoveryV2] Stopping instance discovery.")
         instanceBrowser?.cancel()
         instanceBrowser = nil
         isSearching = false
@@ -260,7 +260,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     // MARK: - Service Resolution
     
     func resolveService(_ service: DiscoveredServiceV2) {
-        print("[BonjourDiscoveryV2] Resolving service '\(service.name)'...")
+        debugLog("[BonjourDiscoveryV2] Resolving service '\(service.name)'...")
         activeConnection?.cancel()
         resolvedService = nil
         resolveError = nil
@@ -286,7 +286,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
         
         connection.stateUpdateHandler = { [weak self] state in
             guard let self = self else { return }
-            print("[BonjourDiscoveryV2] Resolution connection state: \(state)")
+            debugLog("[BonjourDiscoveryV2] Resolution connection state: \(state)")
             
             switch state {
             case .ready, .waiting:
@@ -297,7 +297,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
                     
                     let resolvedHost = "\(host)"
                     let portVal = port.rawValue
-                    print("[BonjourDiscoveryV2] Resolved endpoint: \(resolvedHost):\(portVal)")
+                    debugLog("[BonjourDiscoveryV2] Resolved endpoint: \(resolvedHost):\(portVal)")
                     
                     // Cancel connection immediately as we only needed the resolution info
                     connection.cancel()
@@ -319,7 +319,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
                     }
                 }
             case .failed(let error):
-                print("[BonjourDiscoveryV2] Resolution failed: \(error)")
+                debugLog("[BonjourDiscoveryV2] Resolution failed: \(error)")
                 connection.cancel()
                 self.activeConnection = nil
                 Task { @MainActor in
@@ -335,7 +335,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
     }
     
     func stopResolving() {
-        print("[BonjourDiscoveryV2] Stopping service resolution.")
+        debugLog("[BonjourDiscoveryV2] Stopping service resolution.")
         activeConnection?.cancel()
         activeConnection = nil
         isSearching = false
@@ -398,7 +398,7 @@ final class BonjourDiscoveryManagerV2: NSObject, ObservableObject {
 extension BonjourDiscoveryManagerV2: NetServiceBrowserDelegate {
     
     func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
-        print("[BonjourDiscoveryV2] NetServiceBrowser didFind: name='\(service.name)', type='\(service.type)'")
+        debugLog("[BonjourDiscoveryV2] NetServiceBrowser didFind: name='\(service.name)', type='\(service.type)'")
         Task { @MainActor [weak self] in
             guard let self = self else { return }
             
@@ -407,7 +407,7 @@ extension BonjourDiscoveryManagerV2: NetServiceBrowserDelegate {
             let normalized = fullType.hasSuffix(".") ? fullType : fullType + "."
             
             if self.discoveredTypes.insert(normalized).inserted {
-                print("[BonjourDiscoveryV2] NetServiceBrowser found new service type: \(normalized)")
+                debugLog("[BonjourDiscoveryV2] NetServiceBrowser found new service type: \(normalized)")
                 let info = ServiceTypeInfoV2(
                     rawType: normalized,
                     friendlyName: Self.friendlyName(for: normalized)
@@ -423,6 +423,6 @@ extension BonjourDiscoveryManagerV2: NetServiceBrowserDelegate {
     }
     
     func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String : NSNumber]) {
-        print("[BonjourDiscoveryV2] NetServiceBrowser didNotSearch: \(errorDict)")
+        debugLog("[BonjourDiscoveryV2] NetServiceBrowser didNotSearch: \(errorDict)")
     }
 }

@@ -208,7 +208,7 @@ extension MergePolicy{
                    let secondaryAppVersion = conflictingAppVersions.first(where: { $0 != primaryAppVersion })
                 {
                     secondaryAppVersion.managedObjectContext?.delete(secondaryAppVersion)
-                    print("[ALTLog] Resolving AppVersion context-level conflict. Most likely due to migrating from pre-AppVersion model version.", primaryAppVersion)
+                    debugLog("[ALTLog] Resolving AppVersion context-level conflict. Most likely due to migrating from pre-AppVersion model version. \(primaryAppVersion)")
                 }
                 
             default:
@@ -384,7 +384,7 @@ extension MergePolicy{
                             else
                             {
                                 // Screenshots are still not in correct order, but not worth throwing error so ignore.
-                                print("Failed to re-sort screenshots into correct order. Expected:", sortedScreenshotIDsArray)
+                                debugLog("Failed to re-sort screenshots into correct order. Expected: \(sortedScreenshotIDsArray)")
                             }
                         }
                     }

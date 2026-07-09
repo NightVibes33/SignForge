@@ -31,7 +31,7 @@ class ConsoleLogViewModel: ObservableObject {
     private func startFileWatcher() {
         let fileDescriptor = open(logURL.path, O_RDONLY)
         guard fileDescriptor != -1 else {
-            print("Unable to open file for reading.")
+            debugLog("Unable to open file for reading.")
             return
         }
         
@@ -74,7 +74,7 @@ class ConsoleLogViewModel: ObservableObject {
                     }
                 }
             } catch {
-                print("Error reading log file: \(error)")
+                debugLog("Error reading log file: \(error)")
             }
             return nil
         }.value

@@ -12,7 +12,8 @@ import AltStoreCore
 import AltSign
 
 @objc(RemoveAppExtensionsOperation)
-final class RemoveAppExtensionsOperation: ResultOperation<Void> {
+final class RemoveAppExtensionsOperation: ResultOperation<Void>, OperationLogging {
+
     let context: AppOperationContext
     let localAppExtensions: Set<ALTApplication>?
     
@@ -43,11 +44,11 @@ final class RemoveAppExtensionsOperation: ResultOperation<Void> {
         
     }
     
-    private static func removeExtensions(from extensions: Set<ALTApplication>) throws {
+    private func removeExtensions(from extensions: Set<ALTApplication>) throws {
         let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RemoveAppExtensionsOperation.self)
         for appExtension in extensions {
             if isLoggingEnabled {
-                print("Deleting extension \(appExtension.bundleIdentifier)")
+                debugLog("Deleting extension \(appExtension.bundleIdentifier)")
             }
             try FileManager.default.removeItem(at: appExtension.fileURL)
         }
@@ -135,7 +136,7 @@ final class RemoveAppExtensionsOperation: ResultOperation<Void> {
         })
         alertController.addAction(UIAlertAction(title: NSLocalizedString("Remove App Extensions", comment: ""), style: .destructive) { (action) in
             do {
-                try Self.removeExtensions(from: targetAppBundle.appExtensions)
+                try self.removeExtensions(from: targetAppBundle.appExtensions)
                 try self.updateManifest()
                 return self.finish(.success(()))
             } catch {
@@ -147,7 +148,7 @@ final class RemoveAppExtensionsOperation: ResultOperation<Void> {
 
             let popoverContentController = AppExtensionViewHostingController(extensions: extensions) { (selection) in
                 do {
-                    try Self.removeExtensions(from: Set(selection))
+                    try self.removeExtensions(from: Set(selection))
                     return self.finish(.success(()))
                 } catch {
                     return self.finish(.failure(error))
@@ -214,21 +215,10 @@ final class RemoveAppExtensionsOperation: ResultOperation<Void> {
         verboseLog("RemoveAppExtensionsOperation: Excess Extensions In TargetAppBundle: \(excessExtensions.map { $0.bundleIdentifier })")
         
         do {
-            try Self.removeExtensions(from: excessExtensions)
+            try self.removeExtensions(from: excessExtensions)
             return self.finish(.success(()))
         } catch {
             return self.finish(.failure(error))
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RemoveAppExtensionsOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

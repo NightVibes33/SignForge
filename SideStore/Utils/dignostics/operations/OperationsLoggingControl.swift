@@ -17,7 +17,7 @@ class OperationsLoggingControl {
     private static func updateDatabase(for operation: Operation.Type, value: Bool) {
         // This method should handle the database update logic based on the operation and value
         let key = Self.getKey(operation)
-        print("Updating database for key: \(key), value: \(value)")
+        debugLog("Updating database for key: \(key), value: \(value)")
         UserDefaults.standard.set(value, forKey: key)
     }
     

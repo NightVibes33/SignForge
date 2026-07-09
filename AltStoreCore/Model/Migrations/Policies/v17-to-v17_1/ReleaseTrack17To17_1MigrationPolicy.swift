@@ -26,7 +26,7 @@ class ReleaseTrack17To17_1MigrationPolicy: NSEntityMigrationPolicy {
                 
         // Retrieve the source storeApp from the source ReleaseTrack
         guard let storeApp = dInstance.value(forKey: #keyPath(ReleaseTrack.storeApp)) as? NSManagedObject else {
-            print("Destination \(ReleaseTrack.description()) has no storeApp")
+            debugLog("Destination \(ReleaseTrack.description()) has no storeApp")
             return
         }
         

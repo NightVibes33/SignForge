@@ -79,44 +79,6 @@ public class InstalledApp: BaseEntity, InstalledAppProtocol
         return self.storeApp == nil
     }
     
-    
-    // TODO: integrate the following into the hasUpdate such that altstore sources also work with SideStore, ex: pledge check etc for updates
-    /*
-     
-     
-     
-     
-//        let predicateFormat = [
-//            // isActive && storeApp != nil && latestSupportedVersion != nil
-//            "%K == YES AND %K != nil AND %K != nil",
-//
-//            "AND",
-//
-//            // latestSupportedVersion.version != installedApp.version || latestSupportedVersion.buildVersion != installedApp.storeBuildVersion
-//            //
-//            // We have to also check !(latestSupportedVersion.buildVersion == '' && installedApp.storeBuildVersion == nil)
-//            // because latestSupportedVersion.buildVersion stores an empty string for nil, while installedApp.storeBuildVersion uses NULL.
-//            "(%K != %K OR (%K != %K AND NOT (%K == '' AND %K == nil)))",
-//
-//            "AND",
-//
-//            // !isPledgeRequired || isPledged
-//            "(%K == NO OR %K == YES)"
-//        ].joined(separator: " ")
-//
-//        fetchRequest.predicate = NSPredicate(format: predicateFormat,
-//                                             #keyPath(InstalledApp.isActive), #keyPath(InstalledApp.storeApp), #keyPath(InstalledApp.storeApp.latestSupportedVersion),
-//                                             #keyPath(InstalledApp.storeApp.latestSupportedVersion.version), #keyPath(InstalledApp.version),
-//                                             #keyPath(InstalledApp.storeApp.latestSupportedVersion._buildVersion), #keyPath(InstalledApp.storeBuildVersion),
-//                                             #keyPath(InstalledApp.storeApp.latestSupportedVersion._buildVersion), #keyPath(InstalledApp.storeBuildVersion),
-//                                             #keyPath(InstalledApp.storeApp.isPledgeRequired), #keyPath(InstalledApp.storeApp.isPledged))
-//
-     
-
-    */
-    
-    
-    
     @objc public var hasUpdate: Bool {
         // Basic validation
         guard isActive,
@@ -187,7 +149,7 @@ public class InstalledApp: BaseEntity, InstalledAppProtocol
         
         self.bundleIdentifier = originalBundleIdentifier
         
-        print("InstalledApp `self.bundleIdentifier`: \(self.bundleIdentifier)")
+        debugLog("InstalledApp `self.bundleIdentifier`: \(self.bundleIdentifier)")
         
         self.refreshedDate = Date()
         self.installedDate = Date()
@@ -306,14 +268,14 @@ public extension InstalledApp
     {
         let fetchRequest = InstalledApp.fetchRequest() as NSFetchRequest<InstalledApp>
         fetchRequest.predicate = NSPredicate(format: "%K == YES", #keyPath(InstalledApp.isActive))
-        print("Active Apps Fetch Request: \(String(describing: fetchRequest.predicate))")
+        debugLog("Active Apps Fetch Request: \(String(describing: fetchRequest.predicate))")
         return fetchRequest
     }
     
     class func fetchAltStore(in context: NSManagedObjectContext) -> InstalledApp?
     {
         let predicate = NSPredicate(format: "%K == %@", #keyPath(InstalledApp.bundleIdentifier), StoreApp.altstoreAppID)
-        print("Fetch 'AltStore' Predicate: \(String(describing: predicate))")
+        debugLog("Fetch 'AltStore' Predicate: \(String(describing: predicate))")
         let altStore = InstalledApp.first(satisfying: predicate, in: context)
         return altStore
     }
@@ -414,14 +376,6 @@ public extension InstalledApp
         let openAppURL = URL(string: "sidestore-" + app.bundleIdentifier + "://")!
         return openAppURL
     }
-    
-    // var isUpdateAvailable: Bool {
-    //     guard let storeApp = self.storeApp, let latestVersion = storeApp.latestSupportedVersion else { return false }
-    //     guard !storeApp.isPledgeRequired || storeApp.isPledged else { return false }
-        
-    //     let isUpdateAvailable = !self.matches(latestVersion)
-    //     return isUpdateAvailable
-    // }
 }
 
 public extension InstalledApp
@@ -431,7 +385,7 @@ public extension InstalledApp
         let appsDirectoryURL = baseDirectory.appendingPathComponent("Apps")
         
         do { try FileManager.default.createDirectory(at: appsDirectoryURL, withIntermediateDirectories: true, attributes: nil) }
-        catch { print("Creating App Directory Error: \(error)") }
+        catch { debugLog("Creating App Directory Error: \(error)") }
         return appsDirectoryURL
     }
     
@@ -450,7 +404,7 @@ public extension InstalledApp
     class func refreshedIPAURL(for app: AppProtocol) -> URL
     {
         let ipaURL = self.directoryURL(for: app).appendingPathComponent("Refreshed.ipa")
-        print("`ipaURL`: \(ipaURL.absoluteString)")
+        debugLog("`ipaURL`: \(ipaURL.absoluteString)")
         return ipaURL
     }
     
@@ -459,7 +413,7 @@ public extension InstalledApp
         let directoryURL = InstalledApp.appsDirectoryURL.appendingPathComponent(app.bundleIdentifier)
         
         do { try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil) }
-        catch { print(error) }
+        catch { debugLog("\(error)") }
         
         return directoryURL
     }

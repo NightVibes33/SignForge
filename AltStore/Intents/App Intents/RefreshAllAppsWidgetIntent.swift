@@ -27,7 +27,7 @@ struct RefreshAllAppsWidgetIntent: AppIntent, ProgressReportingIntent
         }
         catch
         {
-            print("Failed to refresh apps via widget.", error)
+            debugLog("Failed to refresh apps via widget. \(error)")
         }
     #endif
         

@@ -37,40 +37,23 @@ class CoreDataHelper{
             throw getCoreDataError(code: 2, localizedDescription: errorDescription)
         }
         
-//        let container = NSPersistentContainer(name: STORE_XCMODELD_NAME)
-//        let container = NSPersistentContainer(name: STORE_XCMODELD_NAME, managedObjectModel: model)
         let container = DatabaseManager.shared.persistentContainer
 
-        // bridge callback into async-await pattern
-//        return try await withCheckedThrowingContinuation{ (continuation: CheckedContinuation<URL, Error>) in
-            
-            // async callback processing
-//            container.loadPersistentStores { description, error in
-                // perform actual backup in sync manner
-//                do{
-//                    let exportedURL = try backupCoreDataStore(container: container, loadError: error)
-//                    let exportedURL = try backupCoreDataStore(container: container)
                     return try backupCoreDataStore(container: container)
-//                    continuation.resume(returning: exportedURL)
-//                }catch{
-//                    continuation.resume(throwing: error)
-//                }
-//            }
-//        }
     }
     
     private static func lockSQLiteFile(at url: URL) -> FileDescriptor? {
         // Open the SQLite file for locking
         let fileDescriptor = open(url.path, O_RDWR)
         guard fileDescriptor >= 0 else {
-            print("Failed to open SQLite file for locking.")
+            debugLog("Failed to open SQLite file for locking.")
             return nil
         }
 
         // Lock the file using flock (exclusive lock)
         let lockResult = flock(fileDescriptor, LOCK_EX)
         guard lockResult == 0 else {
-            print("Failed to lock SQLite file.")
+            debugLog("Failed to lock SQLite file.")
             close(fileDescriptor)
             return nil
         }
@@ -139,9 +122,9 @@ class CoreDataHelper{
         
         let directoryURL = storeURL.deletingLastPathComponent()
         if let files = try? FileManager.default.contentsOfDirectory(atPath: directoryURL.path) {
-            print("Files in Database Dir: \(directoryURL), \(files)")
+            debugLog("Files in Database Dir: \(directoryURL), \(files)")
         } else {
-            print("Failed to list directory contents.")
+            debugLog("Failed to list directory contents.")
         }
         
         let parentDirectory = destinationURL.deletingLastPathComponent()
@@ -156,7 +139,7 @@ class CoreDataHelper{
             
             // Copy main SQLite file
             try fileManager.copyItem(at: storeURL, to: destinationURL)
-            print("Core Data store exported to: \(destinationURL.path)")
+            debugLog("Core Data store exported to: \(destinationURL.path)")
 
             // Copy -shm and -wal files if they exist
             let additionalFiles = ["-shm", "-wal"].compactMap {
@@ -166,7 +149,7 @@ class CoreDataHelper{
             for file in additionalFiles where fileManager.fileExists(atPath: file.path) {
                 let destination = destinationURL.deletingPathExtension() .appendingPathExtension(file.pathExtension)
                 try fileManager.copyItem(at: file, to: destination)
-                print("Core Data store exported to: \(destination.path)")
+                debugLog("Core Data store exported to: \(destination.path)")
             }
             
             return destinationURL

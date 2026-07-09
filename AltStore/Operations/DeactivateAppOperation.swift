@@ -12,7 +12,8 @@ import AltSign
 import CoreData
 
 @objc(DeactivateAppOperation)
-final class DeactivateAppOperation: ResultOperation<InstalledApp>, @unchecked Sendable
+final class DeactivateAppOperation: ResultOperation<InstalledApp>, OperationLogging, @unchecked Sendable
+
 {
     let app: InstalledApp
     let context: OperationContext
@@ -76,17 +77,6 @@ final class DeactivateAppOperation: ResultOperation<InstalledApp>, @unchecked Se
         }
         installedApp.isActive = false
         return installedApp
-    }
-    
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-    
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: DeactivateAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }
 

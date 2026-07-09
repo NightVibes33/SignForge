@@ -12,7 +12,8 @@ import AltStoreCore
 import AltSign
 
 @objc(ResignAppOperation)
-final class ResignAppOperation: ResultOperation<ALTApplication>, @unchecked Sendable {
+final class ResignAppOperation: ResultOperation<ALTApplication>, OperationLogging, @unchecked Sendable {
+
     let context: InstallAppOperationContext
     
     init(context: InstallAppOperationContext) {
@@ -297,17 +298,5 @@ final class ResignAppOperation: ResultOperation<ALTApplication>, @unchecked Send
         
         // Save updated Manifest.plist to disk.
         try manifestPlist.write(to: manifestPlistURL)
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: ResignAppOperation.self)
-        if isLoggingEnabled {
-            // logging enabled, so log it
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }

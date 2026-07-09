@@ -286,7 +286,7 @@ private extension BrowseViewController
             if let error = error, let dataSource
             {
                 let app = dataSource.item(at: indexPath)
-                print("Failed to load app icon from \(app.iconURL). \(error.localizedDescription)")
+                debugLog("Failed to load app icon from \(app.iconURL). \(error.localizedDescription)")
             }
         }
         
@@ -380,7 +380,7 @@ private extension BrowseViewController
                 Nuke.loadImage(with: iconURL, into: self.titleSourceIconView) { result in
                     switch result
                     {
-                    case .failure(let error): print("Failed to fetch source icon at \(iconURL). \(error.localizedDescription)")
+                    case .failure(let error): debugLog("Failed to fetch source icon at \(iconURL). \(error.localizedDescription)")
                     case .success: self.titleSourceIconView.backgroundColor = .white
                     }
                 }
@@ -474,7 +474,7 @@ private extension BrowseViewController
         }
         catch
         {
-            print("Failed to fetch categories. \(error.localizedDescription)")
+            debugLog("Failed to fetch categories. \(error.localizedDescription)")
             
             return []
         }
@@ -589,7 +589,7 @@ private extension BrowseViewController
                     let toastView = ToastView(error: error, opensLog: true)
                     toastView.show(in: self)
                     
-                case .success: print("Installed app:", app.bundleIdentifier)
+                case .success: debugLog("Installed app: \(app.bundleIdentifier)")
                 }
                 
                 UIView.performWithoutAnimation {

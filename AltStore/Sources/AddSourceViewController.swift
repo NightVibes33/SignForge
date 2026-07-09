@@ -260,7 +260,7 @@ private extension AddSourceViewController
             
             if let error = error
             {
-                print("Error loading image:", error)
+                debugLog("Error loading image: \(error)")
             }
         }
         
@@ -298,7 +298,7 @@ private extension AddSourceViewController
             
             if let error = error
             {
-                print("Error loading image:", error)
+                debugLog("Error loading image: \(error)")
             }
         }
         
@@ -517,7 +517,7 @@ private extension AddSourceViewController
             return result
         }
         .catch { error in
-            print("Failed to fetch source for URL \(sourceURL).", error.localizedDescription)
+            debugLog("Failed to fetch source for URL \(sourceURL). \(error.localizedDescription)")
             
             let result = SourcePreviewResult(sourceURL, .failure(error))
             return Just<SourcePreviewResult?>(result)
@@ -616,7 +616,7 @@ private extension AddSourceViewController
                 }
                 catch
                 {
-                    print("Failed to determine if source is added.", error)
+                    debugLog("Failed to determine if source is added. \(error)")
                 }
                     
                 // use the plus icon by default
@@ -705,14 +705,14 @@ private extension AddSourceViewController
                 do
                 {
                     let sources = try result.get()
-                    print("Fetched recommended sources:", sources.map { $0.identifier })
+                    debugLog("Fetched recommended sources: \(sources.map { $0.identifier })")
                     
                     let sectionUpdate = RSTCellContentChange(type: .update, sectionIndex: 0)
                     self?.recommendedSourcesDataSource.setItems(sources, with: [sectionUpdate])
                 }
                 catch
                 {
-                    print("Error fetching recommended sources:", error)
+                    debugLog("Error fetching recommended sources: \(error)")
                     
                     let sectionUpdate = RSTCellContentChange(type: .update, sectionIndex: 0)
                     self?.recommendedSourcesDataSource.setItems([], with: [sectionUpdate])
@@ -748,7 +748,7 @@ private extension AddSourceViewController
                             switch result
                             {
                             case .failure(let error):
-                                print("Failed to load recommended source \(sourceURL.absoluteString):", error.localizedDescription, error)
+                                debugLog("Failed to load recommended source \(sourceURL.absoluteString): \(error.localizedDescription) \(error)")
                                 fetchError = error
                                 
                             case .success(let source): sourcesByURL[source.sourceURL] = source

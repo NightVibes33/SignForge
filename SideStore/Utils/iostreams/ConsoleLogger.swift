@@ -13,6 +13,12 @@ protocol ConsoleLogger{
     func stopCapturing()
 }
 
+
+public enum AbstractClassError: Error {
+    case abstractInitializerInvoked
+    case abstractMethodInvoked
+}
+
 public class AbstractConsoleLogger<T: OutputStream>: ConsoleLogger{
     var outPipe: Pipe?
     var errPipe: Pipe?

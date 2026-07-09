@@ -19,6 +19,6 @@ public class BaseEntity: NSManagedObject, Fetchable
     {
         super.init(entity: entity, insertInto: context)
         
-//        print("\(BaseEntity.self):\(type(of: self)): Inserting: \(entity.name ?? "nil") into context: \(String(describing: context))")
+//        debugLog("\(BaseEntity.self):\(type(of: self)): Inserting: \(entity.name ?? "nil") into context: \(String(describing: context))")
     }
 }

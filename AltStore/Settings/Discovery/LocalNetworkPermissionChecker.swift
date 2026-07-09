@@ -24,7 +24,7 @@ final class LocalNetworkPermissionChecker: NSObject {
     /// Checks if Local Network permission is granted by publishing a dummy NetService.
     /// If not determined, this triggers the system permission alert.
     func checkPermission() async -> Bool {
-        print("[LocalNetworkCheck] Checking local network permission via NetService publication...")
+        debugLog("[LocalNetworkCheck] Checking local network permission via NetService publication...")
         
         // If there's an ongoing check, fail it first to avoid hanging
         cleanup(returning: false)
@@ -37,7 +37,7 @@ final class LocalNetworkPermissionChecker: NSObject {
         return await withCheckedContinuation { continuation in
             self.continuation = continuation
             
-            print("[LocalNetworkCheck] Publishing dummy NetService immediately...")
+            debugLog("[LocalNetworkCheck] Publishing dummy NetService immediately...")
             netService.publish()
             
             var ticks = 0
@@ -54,7 +54,7 @@ final class LocalNetworkPermissionChecker: NSObject {
                     
                     ticks += 1
                     if ticks >= 2 {
-                        print("[LocalNetworkCheck] Publication timed out. Permission denied.")
+                        debugLog("[LocalNetworkCheck] Publication timed out. Permission denied.")
                         self.cleanup(returning: false)
                     }
                 }
@@ -80,14 +80,14 @@ extension LocalNetworkPermissionChecker: NetServiceDelegate {
     
     nonisolated func netServiceDidPublish(_ sender: NetService) {
         Task { @MainActor in
-            print("[LocalNetworkCheck] NetService published successfully. Permission granted.")
+            debugLog("[LocalNetworkCheck] NetService published successfully. Permission granted.")
             self.cleanup(returning: true)
         }
     }
     
     nonisolated func netService(_ sender: NetService, didNotPublish errorDict: [String : NSNumber]) {
         Task { @MainActor in
-            print("[LocalNetworkCheck] NetService failed to publish: \(errorDict). Permission denied.")
+            debugLog("[LocalNetworkCheck] NetService failed to publish: \(errorDict). Permission denied.")
             self.cleanup(returning: false)
         }
     }

@@ -27,7 +27,7 @@ extension FileManager
             }
             catch
             {
-                print("Failed to read file size for item: \(fileURL).", error)
+                debugLog("Failed to read file size for item: \(fileURL). error:\(error)")
             }
         }
         

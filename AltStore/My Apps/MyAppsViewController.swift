@@ -320,7 +320,7 @@ private extension MyAppsViewController
             
             if let error = error
             {
-                print("Error loading image:", error)
+                debugLog("Error loading image: \(error)")
             }
         }
         
@@ -561,7 +561,7 @@ private extension MyAppsViewController
         }
         catch
         {
-            print("[ALTLog] Failed to fetch updates:", error)
+            debugLog("[ALTLog] Failed to fetch updates: \(error)")
         }
     }
 }
@@ -634,7 +634,7 @@ private extension MyAppsViewController
             }
             catch
             {
-                print("Failed to fetch App IDs.", error)
+                debugLog("Failed to fetch App IDs. \(error)")
             }
         }
     }
@@ -815,7 +815,7 @@ private extension MyAppsViewController
         let interaction = INInteraction.refreshAllApps()
         interaction.donate { (error) in
             guard let error = error else { return }
-            print("Failed to donate intent \(interaction.intent).", error)
+            debugLog("Failed to donate intent \(interaction.intent). \(error)")
         }
     }
     
@@ -845,7 +845,7 @@ private extension MyAppsViewController
                     self.collectionView.reloadItems(at: [indexPath])
                     
                 case .success:
-                    print("Updated app:", installedApp.bundleIdentifier)
+                    debugLog("Updated app: \(installedApp.bundleIdentifier)")
                     // No need to reload, since the the update cell is gone now.
                 }
                 
@@ -1010,7 +1010,7 @@ private extension MyAppsViewController
                     completion(.success(()))
                     
                     app.managedObjectContext?.perform {
-                        print("Successfully installed app:", app.bundleIdentifier)
+                        debugLog("Successfully installed app: \(app.bundleIdentifier)")
                     }
                     
                 case .failure(OperationError.cancelled):
@@ -1164,7 +1164,7 @@ private extension MyAppsViewController
                 }
             }
             
-            print("Finished refreshing with results:", results.map { ($0, $1.error?.localizedDescription ?? "success") })
+            debugLog("Finished refreshing with results: \(results.map { ($0, $1.error?.localizedDescription ?? "success") })")
         }
     }
     
@@ -1186,12 +1186,12 @@ private extension MyAppsViewController
             switch result
             {
             case .failure(let error):
-                print("Failed to resign app:", error)
+                debugLog("Failed to resign app: \(error)")
                 DispatchQueue.main.async {
                     ToastView(error: error, opensLog: true).show(in: self)
                 }
             case .success(let app):
-                print("Successfully resigned app:", app.name)
+                debugLog("Successfully resigned app: \(app.name)")
             }
         }
     }
@@ -1216,7 +1216,7 @@ private extension MyAppsViewController
             }
             catch
             {
-                print("Failed to activate app:", error)
+                debugLog("Failed to activate app: \(error)")
                 
                 DispatchQueue.main.async {
                     ToastView(error: error, opensLog: true).show(in: self)
@@ -1257,7 +1257,7 @@ private extension MyAppsViewController
                 let app = try result.get()
                 try? app.managedObjectContext?.save()
                 
-                print("Finished deactivating app:", app.bundleIdentifier)
+                debugLog("Finished deactivating app: \(app.bundleIdentifier)")
             }
             catch OperationError.cancelled
             {
@@ -1265,7 +1265,7 @@ private extension MyAppsViewController
             }
             catch
             {
-                print("Failed to deactivate app:", error)
+                debugLog("Failed to deactivate app: \(error)")
                 
                 DispatchQueue.main.async {
                     ToastView(error: error, opensLog: true).show(in: self)
@@ -1326,11 +1326,11 @@ private extension MyAppsViewController
                     let app = try result.get()
                     try? app.managedObjectContext?.save()
                     
-                    print("Finished backing up app:", app.bundleIdentifier)
+                    debugLog("Finished backing up app: \(app.bundleIdentifier)")
                 }
                 catch
                 {
-                    print("Failed to back up app:", error)
+                    debugLog("Failed to back up app: \(error)")
                     
                     DispatchQueue.main.async {
                         ToastView(error: error, opensLog: true).show(in: self)
@@ -1406,11 +1406,11 @@ private extension MyAppsViewController
                     let app = try result.get()
                     try? app.managedObjectContext?.save()
                     
-                    print("Finished restoring app:", app.bundleIdentifier)
+                    debugLog("Finished restoring app: \(app.bundleIdentifier)")
                 }
                 catch
                 {
-                    print("Failed to restore app:", error)
+                    debugLog("Failed to restore app: \(error)")
                     
                     DispatchQueue.main.async {
                         ToastView(error: error, opensLog: true).show(in: self)
@@ -1495,7 +1495,7 @@ private extension MyAppsViewController
             }
             catch
             {
-                print("Failed to change app icon.", error)
+                debugLog("Failed to change app icon. \(error)")
                 
                 DispatchQueue.main.async {
                     ToastView(error: error, opensLog: true).show(in: self)
@@ -1550,7 +1550,7 @@ private extension MyAppsViewController
             }
             catch
             {
-                print("Unable to remove imported .ipa.", error)
+                debugLog("Unable to remove imported .ipa. \(error)")
             }
         }
     }
@@ -1589,7 +1589,7 @@ private extension MyAppsViewController
                     }
                     catch let error as AppManager.FetchSourcesError
                     {
-                        print(error)
+                        debugLog("\(error)")
                         try await error.managedObjectContext?.performAsync {
                             try error.managedObjectContext?.save()
                         }
@@ -1612,7 +1612,7 @@ private extension MyAppsViewController
                         }
                         catch
                         {
-                            print("[ALTLog] Failed to assign error \(sanitizedError.localizedErrorCode) to source \(sourceID).", error)
+                            debugLog("[ALTLog] Failed to assign error \(sanitizedError.localizedErrorCode) to source \(sourceID). \(error)")
                         }
                     }
                     
@@ -1621,7 +1621,7 @@ private extension MyAppsViewController
             }
             catch let error as NSError
             {
-                print(error)
+                debugLog("\(error)")
                 let toastView = ToastView(error: error.withLocalizedTitle(NSLocalizedString("Unable to Check for Updates", comment: "")))
                 toastView.addTarget(nil, action: #selector(TabBarController.presentSources), for: .touchUpInside)
                 toastView.show(in: self)
@@ -1953,7 +1953,7 @@ extension MyAppsViewController
                 }
                 else if let error = outError
                 {
-                    print("Unable to check if backup exists:", error)
+                    debugLog("Unable to check if backup exists: \(error)")
                 }
             }
             
@@ -2516,7 +2516,7 @@ extension MyAppsViewController: UIDocumentPickerDelegate
         guard let fileURL = urls.first else { return }
         
         self.sideloadApp(at: fileURL) { (result) in
-            print("Sideloaded app at \(fileURL) with result:", result)
+            debugLog("Sideloaded app at \(fileURL) with result: \(result)")
         }
     }
 }

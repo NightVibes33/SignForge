@@ -39,7 +39,7 @@ public extension FileManager {
         } catch {
             let nsError = error as NSError
             if nsError.domain != NSCocoaErrorDomain || nsError.code != NSFileNoSuchFileError {
-                print("[FileManager+URLs] Error removing temporary item: \(error)")
+                debugLog("[FileManager+URLs] Error removing temporary item: \(error)")
             }
         }
     }
@@ -57,7 +57,7 @@ public extension FileManager {
             do {
                 try self.removeItem(at: temporaryDirectory)
             } catch {
-                print("[FileManager+URLs] Error removing temporary directory: \(error)")
+                debugLog("[FileManager+URLs] Error removing temporary directory: \(error)")
             }
         }
 

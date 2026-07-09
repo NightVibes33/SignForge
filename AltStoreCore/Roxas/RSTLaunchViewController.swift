@@ -93,7 +93,7 @@ open class RSTLaunchViewController: UIViewController {
     }
     
     @objc open func handleLaunchError(_ error: Error) {
-        print("Launch Error: \(error.localizedDescription)")
+        debugLog("Launch Error: \(error.localizedDescription)")
     }
     
     @objc open func finishLaunching() {}

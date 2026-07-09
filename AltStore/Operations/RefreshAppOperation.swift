@@ -12,7 +12,8 @@ import AltStoreCore
 import AltSign
 
 @objc(RefreshAppOperation)
-final class RefreshAppOperation: ResultOperation<InstalledApp>
+final class RefreshAppOperation: ResultOperation<InstalledApp>, OperationLogging
+
 {
     let context: AppOperationContext
     
@@ -78,16 +79,5 @@ final class RefreshAppOperation: ResultOperation<InstalledApp>
             installedExtension.update(provisioningProfile: provisioningProfile)
         }
         return installedApp
-    }
-    
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: RefreshAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }

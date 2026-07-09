@@ -118,27 +118,27 @@ class CertificatesViewModel: ObservableObject {
     func loadLocalCertificates() -> [ALTCertificate] {
         var localCerts: [ALTCertificate] = []
         let serials = UserDefaults.standard.stringArray(forKey: "importedCertificateSerials") ?? []
-        print("[SideStore] loadLocalCertificates, serials: \(serials)")
+        debugLog("[SideStore] loadLocalCertificates, serials: \(serials)")
         for serial in serials {
             do {
                 if let data = try self.certificateKeychain.getData("importedCert_" + serial) {
-                    print("[SideStore]   Retrieved data size: \(data.count) for \(serial)")
+                    debugLog("[SideStore]   Retrieved data size: \(data.count) for \(serial)")
                     var loadedCert: ALTCertificate?
                     do {
                         loadedCert = try ALTCertificate(p12Data: data, password: "")
-                        print("[SideStore]   Parsed as p12 empty pass")
+                        debugLog("[SideStore]   Parsed as p12 empty pass")
                     } catch {
-                        print("[SideStore]   Failed p12 empty pass: \(error)")
+                        debugLog("[SideStore]   Failed p12 empty pass: \(error)")
                         do {
                             loadedCert = try ALTCertificate(p12Data: data, password: nil)
-                            print("[SideStore]   Parsed as p12 nil pass")
+                            debugLog("[SideStore]   Parsed as p12 nil pass")
                         } catch {
-                            print("[SideStore]   Failed p12 nil pass: \(error)")
+                            debugLog("[SideStore]   Failed p12 nil pass: \(error)")
                             if let cert = ALTCertificate(data: data) {
                                 loadedCert = cert
-                                print("[SideStore]   Parsed as raw cert")
+                                debugLog("[SideStore]   Parsed as raw cert")
                             } else {
-                                print("[SideStore]   Failed raw cert parsing")
+                                debugLog("[SideStore]   Failed raw cert parsing")
                             }
                         }
                     }
@@ -152,35 +152,35 @@ class CertificatesViewModel: ObservableObject {
                         localCerts.append(cert)
                     }
                 } else {
-                    print("[SideStore]   No data found in keychain for importedCert_\(serial)")
+                    debugLog("[SideStore]   No data found in keychain for importedCert_\(serial)")
                 }
             } catch {
-                print("[SideStore]   Keychain error for importedCert_\(serial): \(error)")
+                debugLog("[SideStore]   Keychain error for importedCert_\(serial): \(error)")
             }
         }
         return localCerts
     }
     
     func saveLocalCertificate(_ cert: ALTCertificate) {
-        print("[SideStore] saveLocalCertificate serial: \(cert.serialNumber)")
+        debugLog("[SideStore] saveLocalCertificate serial: \(cert.serialNumber)")
         if cert.privateKey != nil, let p12Data = cert.p12Data() {
-            print("[SideStore]   p12Data generated, size: \(p12Data.count)")
+            debugLog("[SideStore]   p12Data generated, size: \(p12Data.count)")
             do {
                 try self.certificateKeychain.set(p12Data, key: "importedCert_" + cert.serialNumber)
-                print("[SideStore]   Successfully saved p12 to keychain")
+                debugLog("[SideStore]   Successfully saved p12 to keychain")
             } catch {
-                print("[SideStore]   Failed to save p12 to keychain: \(error)")
+                debugLog("[SideStore]   Failed to save p12 to keychain: \(error)")
             }
         } else if let derData = cert.data {
-            print("[SideStore]   derData exists, size: \(derData.count)")
+            debugLog("[SideStore]   derData exists, size: \(derData.count)")
             do {
                 try self.certificateKeychain.set(derData, key: "importedCert_" + cert.serialNumber)
-                print("[SideStore]   Successfully saved derData to keychain")
+                debugLog("[SideStore]   Successfully saved derData to keychain")
             } catch {
-                print("[SideStore]   Failed to save derData to keychain: \(error)")
+                debugLog("[SideStore]   Failed to save derData to keychain: \(error)")
             }
         } else {
-            print("[SideStore]   No data available to save")
+            debugLog("[SideStore]   No data available to save")
             return
         }
         var serials = UserDefaults.standard.stringArray(forKey: "importedCertificateSerials") ?? []

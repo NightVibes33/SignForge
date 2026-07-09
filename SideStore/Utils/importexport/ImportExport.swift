@@ -46,8 +46,8 @@ class ImportExport {
             try fileManager.createDirectory(at: backupURL, withIntermediateDirectories: true, attributes: nil)
         }
         
-        print("Backup URL: \(backupURL)")
-        print("Document Picker URL: \(documentPickerURL)")
+        debugLog("Backup URL: \(backupURL)")
+        debugLog("Document Picker URL: \(documentPickerURL)")
         
         // Enumerate the contents of the selected directory and copy them to the backup directory.
         let selectedContents = try fileManager.contentsOfDirectory(
@@ -99,10 +99,10 @@ class ImportExport {
                 // Import the contents of the selected folder into the backup directory.
                 try Self.importBackupContents(from: selectedURL, to: backupURL)
                 
-                print("Backup imported successfully to:", backupURL.path)
+                debugLog("Backup imported successfully to: \(backupURL.path)")
                 return completionHandler(.success(()))
             } catch {
-                print("Backup Error:", error)
+                debugLog("Backup Error: \(error)")
                 return completionHandler(.failure( OperationError.invalidParameters(error.localizedDescription)))
             }
         }

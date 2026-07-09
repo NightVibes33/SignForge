@@ -13,7 +13,8 @@ import CoreData
 
 
 @objc(FetchProvisioningProfilesOperation)
-class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioningProfile]> {
+class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioningProfile]>, OperationLogging {
+
     let context: AppOperationContext
     
     var additionalEntitlements: [ALTEntitlement: Any]?
@@ -269,17 +270,6 @@ class FetchProvisioningProfilesOperation: ResultOperation<[String: ALTProvisioni
                     throw ALTError(.unknown)
                 }
             }
-        }
-    }
-
-    func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: type(of: self))
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

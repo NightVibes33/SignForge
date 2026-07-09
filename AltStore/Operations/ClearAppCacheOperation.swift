@@ -39,7 +39,8 @@ struct BatchError: ALTLocalizedError {
 }
 
 @objc(ClearAppCacheOperation)
-class ClearAppCacheOperation: ResultOperation<Void> {
+class ClearAppCacheOperation: ResultOperation<Void>, OperationLogging {
+
     private let coordinator = NSFileCoordinator()
     private let coordinatorQueue = OperationQueue()
     
@@ -158,17 +159,6 @@ class ClearAppCacheOperation: ResultOperation<Void> {
         
         if !errors.isEmpty {
             throw OperationError.cacheClearError(errors: errors.map { $0.localizedDescription })
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: ClearAppCacheOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

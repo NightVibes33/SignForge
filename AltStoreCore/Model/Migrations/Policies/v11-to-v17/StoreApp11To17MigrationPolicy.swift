@@ -21,13 +21,13 @@ class StoreApp11To17MigrationPolicy: NSEntityMigrationPolicy {
 //        
 //        // Get the destination StoreApp instance that was created
 //        guard let destinationStoreApp = manager.destinationInstances(forEntityMappingName: mapping.name, sourceInstances: [sInstance]).first else {
-//            print("Failed to locate destination StoreApp instance")
+//            debugLog("Failed to locate destination StoreApp instance")
 //            return
 //        }
 //        
 //        // Get the source versions array
 //        guard let sourceVersions = sInstance.value(forKey: #keyPath(StoreApp._versions)) as? NSOrderedSet else {
-//            print("Source has no versions")
+//            debugLog("Source has no versions")
 //            return
 //        }
 //        
@@ -84,7 +84,7 @@ class StoreApp11To17MigrationPolicy: NSEntityMigrationPolicy {
         }
         
         // If not found, return a default (you might want to handle this differently)
-        print("Warning: Could not find mapping for entity: \(entityName)")
+        debugLog("Warning: Could not find mapping for entity: \(entityName)")
         return "\(entityName)To\(entityName)"
     }
     
@@ -96,13 +96,13 @@ class StoreApp11To17MigrationPolicy: NSEntityMigrationPolicy {
         // Retrieve the corresponding source instance for the destination StoreApp
         let sourceInstances = manager.sourceInstances(forEntityMappingName: mapping.name, destinationInstances: [dInstance])
         guard let sInstance = sourceInstances.first else {
-            print("No source instance found for destination: \(dInstance)")
+            debugLog("No source instance found for destination: \(dInstance)")
             return
         }
         
         // Retrieve the source versions from the source StoreApp
         guard let sourceVersions = sInstance.value(forKey: #keyPath(StoreApp._versions)) as? NSOrderedSet else {
-            print("Source store app has no versions")
+            debugLog("Source store app has no versions")
             return
         }
         
@@ -134,7 +134,7 @@ class StoreApp11To17MigrationPolicy: NSEntityMigrationPolicy {
                 destVersion.setValue(defaultChannel, forKey: #keyPath(AppVersion._channel))
                 destVersion.setValue("", forKey: #keyPath(AppVersion._buildVersion))
             } else {
-                print("Destination AppVersion not found for source version: \(sourceVersion)")
+                debugLog("Destination AppVersion not found for source version: \(sourceVersion)")
             }
         }
         

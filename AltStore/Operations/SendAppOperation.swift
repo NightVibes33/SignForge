@@ -11,7 +11,8 @@ import Network
 import AltStoreCore
 
 @objc(SendAppOperation)
-final class SendAppOperation: ResultOperation<()>
+final class SendAppOperation: ResultOperation<()>, OperationLogging
+
 {
     let context: InstallAppOperationContext
     
@@ -81,18 +82,5 @@ final class SendAppOperation: ResultOperation<()>
         let bytes = Data(data)
         try await yeetAppAFC(bundleIdentifier, bytes)
         self.progress.completedUnitCount += 1
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String)
-    {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String)
-    {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: SendAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }

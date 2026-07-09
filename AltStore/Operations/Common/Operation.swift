@@ -44,7 +44,7 @@ class ResultOperation<ResultType>: Operation
         if UserDefaults.standard.isVerboseOperationsLoggingEnabled && isLoggingEnabledForThisOperation {
             // diagnostics logging
             let resultStatus = String(describing: result).prefix("success".count).uppercased()
-            print("\n  ====> OPERATION: `\(type(of: self))` completed with: \(resultStatus) <====\n\n" +
+            debugLog("\n  ====> OPERATION: `\(type(of: self))` completed with: \(resultStatus) <====\n\n" +
                   "    Result: \(result)\n")
         }
 

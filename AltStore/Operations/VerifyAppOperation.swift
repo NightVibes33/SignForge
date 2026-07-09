@@ -30,7 +30,8 @@ extension VerifyAppOperation {
 }
 
 @objc(VerifyAppOperation)
-final class VerifyAppOperation: ResultOperation<Void> {
+final class VerifyAppOperation: ResultOperation<Void>, OperationLogging {
+
     let permissionsMode: PermissionReviewMode
     let context: InstallAppOperationContext
     var customBundleId: String?
@@ -267,17 +268,6 @@ final class VerifyAppOperation: ResultOperation<Void> {
             }
             
             presentingViewController.present(navigationController, animated: true)
-        }
-    }
-
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: VerifyAppOperation.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
         }
     }
 }

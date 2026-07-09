@@ -228,7 +228,7 @@ private extension NewsViewController
             
             if let error = error
             {
-                print("Error loading image:", error)
+                debugLog("Error loading image: \(error)")
             }
         }
         
@@ -366,7 +366,7 @@ private extension NewsViewController
                     toastView.opensErrorLog = true
                     toastView.show(in: self)
 
-                case .success: print("Installed app:", storeApp.bundleIdentifier)
+                case .success: debugLog("Installed app: \(storeApp.bundleIdentifier)")
                 }
                 
                 UIView.performWithoutAnimation {

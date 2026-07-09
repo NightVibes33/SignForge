@@ -43,7 +43,8 @@ enum AuthenticationErrorCode: Int, ALTErrorEnum, CaseIterable {
 }
 
 @objc(AuthenticationOperation)
-final class AuthenticationOperation: ResultOperation<(ALTTeam, ALTCertificate?, ALTAppleAPISession)> {
+final class AuthenticationOperation: ResultOperation<(ALTTeam, ALTCertificate?, ALTAppleAPISession)>, OperationLogging {
+
     let context: AuthenticatedOperationContext
     
     private weak var presentingViewController: UIViewController?
@@ -810,18 +811,6 @@ extension AuthenticationOperation {
         guard let textField = notification.object as? UITextField else { return }
         
         self.submitCodeAction?.isEnabled = (textField.text ?? "").count == 6
-    }
-
-    func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: AuthenticationOperation.self)
-        if isLoggingEnabled {
-            // logging enabled, so log it
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }
 

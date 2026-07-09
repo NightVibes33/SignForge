@@ -15,7 +15,7 @@ public class ViewAppIntentHandler: NSObject, ViewAppIntentHandling
         DatabaseManager.shared.start { (error) in
             if let error = error
             {
-                print("Error starting extension:", error)
+                debugLog("Error starting extension: \(error)")
             }
             
             DatabaseManager.shared.persistentContainer.performBackgroundTask { (context) in

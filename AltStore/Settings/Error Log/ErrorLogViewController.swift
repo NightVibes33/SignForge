@@ -444,7 +444,7 @@ private extension ErrorLogViewController
 //            }
 //            catch
 //            {
-//                print("Failed to export OSLog entries. \(error.localizedDescription)")
+//                debugLog("Failed to export OSLog entries. \(error.localizedDescription)")
 //                
 //                await MainActor.run {
 //                    let alertController = UIAlertController(title: NSLocalizedString("Unable to Export Detailed Log", comment: ""), message: error.localizedDescription, preferredStyle: .alert)
@@ -503,7 +503,7 @@ extension ErrorLogViewController
                 }
                 catch
                 {
-                    print("[ALTLog] Failed to delete LoggedError \(loggedError.objectID):", error)
+                    debugLog("[ALTLog] Failed to delete LoggedError \(loggedError.objectID): \(error)")
                     DispatchQueue.main.async {
                         completion(false)
                     }
@@ -602,7 +602,7 @@ extension ErrorLogViewController
 //        }
 //        catch
 //        {
-//            print("Failed to remove temporary log directory \(parentDirectory.lastPathComponent). \(error.localizedDescription)")
+//            debugLog("Failed to remove temporary log directory \(parentDirectory.lastPathComponent). \(error.localizedDescription)")
 //        }
 //        
 //        _exportedLogURL = nil

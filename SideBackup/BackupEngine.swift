@@ -257,12 +257,12 @@ final class BackupEngine: NSObject, Sendable {
             // Replace previous backup with new backup.
             _ = try FileManager.default.replaceItemAt(appBackupDirectory, withItemAt: temporaryAppBackupDirectory)
             
-            debugLog("[SideBackup]: Replaced previous backup with new backup:", temporaryAppBackupDirectory)
+            debugLog("[SideBackup]: Replaced previous backup with new backup: \(temporaryAppBackupDirectory)")
         } catch {
             do {
                 try FileManager.default.removeItem(at: temporaryAppBackupDirectory)
             } catch {
-                debugLog("[SideBackup]: Failed to remove temporary directory.", error)
+                debugLog("[SideBackup]: Failed to remove temporary directory. \(error)")
             }
             throw error
         }
@@ -336,7 +336,7 @@ private extension FileManager {
             } catch {
                 // Ignore errors for /Documents/Inbox
                 guard !(fileURL.lastPathComponent == "Inbox" && fileURL.deletingLastPathComponent().lastPathComponent == "Documents") else {
-                    debugLog("[SideBackup]: Failed to copy Inbox directory:", error)
+                    debugLog("[SideBackup]: Failed to copy Inbox directory: \(error)")
                     continue
                 }
                 throw error

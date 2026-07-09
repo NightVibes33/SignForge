@@ -16,7 +16,8 @@ import AltSign
 class ANISETTE_VERBOSITY: Operation {} // dummy tag iface
 
 @objc(FetchAnisetteDataOperation)
-final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>, WebSocketDelegate {
+final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>, WebSocketDelegate, OperationLogging {
+
     let context: OperationContext
     var socket: WebSocket!
     
@@ -536,18 +537,6 @@ final class FetchAnisetteDataOperation: ResultOperation<ALTAnisetteData>, WebSoc
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
         try self.extractAnisetteData(data, response as? HTTPURLResponse, v3: true)
-    }
-    
-    
-    private func debugLog(_ text: @autoclosure () -> String) {
-        print("\(getOperationsLogTag(level: "DEBUG"))\(text())")
-    }
-
-    private func verboseLog(_ text: @autoclosure () -> String) {
-        let isLoggingEnabled = OperationsLoggingControl.getFromDatabase(for: ANISETTE_VERBOSITY.self)
-        if isLoggingEnabled {
-            print("\(getOperationsLogTag(level: "TRACE"))\(text())")
-        }
     }
 }
 

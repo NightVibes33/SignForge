@@ -46,7 +46,7 @@ class AppsTimelineProviderBase<T>
         }
         catch
         {
-            print("Failed to prepare widget snapshot:", error)
+            debugLog("Failed to prepare widget snapshot: \(error)")
             
             let entry = AppsEntry(date: Date(), apps: [], context: context)
             return entry
@@ -76,7 +76,7 @@ class AppsTimelineProviderBase<T>
         }
         catch
         {
-            print("Failed to prepare widget timeline:", error)
+            debugLog("Failed to prepare widget timeline: \(error)")
             
             let entry = AppsEntry(date: Date(), apps: [], context: context)
             let timeline = Timeline(entries: [entry], policy: .atEnd)
@@ -190,7 +190,7 @@ extension AppsTimelineProviderBase
         }
         catch
         {
-            print("Failed to fetch active bundle IDs, falling back to AltStore bundle ID.", error)
+            debugLog("Failed to fetch active bundle IDs, falling back to AltStore bundle ID. \(error)")
             
             return [StoreApp.altstoreAppID]
         }
