@@ -14,7 +14,7 @@ import AltSign
 
 @objc(DownloadAppOperation)
 final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogging {
-
+    
     @Managed
     private(set) var app: AppProtocol
 
@@ -58,7 +58,8 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
 
         Task {
             do {
-                try await self.execute()
+                let application = try await self.execute()
+                self.finish(.success(application))
             } catch {
                 self.finish(.failure(error))
             }
@@ -66,7 +67,7 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
     }
 
     override func finish(_ result: Result<ALTApplication, Error>) {
-        if(FileManager.default.fileExists(atPath: self.temporaryDirectory.path)){
+        if FileManager.default.fileExists(atPath: self.temporaryDirectory.path) {
             do {
                 try FileManager.default.removeItem(at: self.temporaryDirectory)
             } catch {
@@ -77,11 +78,9 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
         super.finish(result)
     }
     
-    private nonisolated func execute() async throws {
-        let app = await self.$app.perform {_ in 
-            self.app
-        }
-        
+    
+    private nonisolated func execute() async throws -> ALTApplication {
+        let app = self.$app.perform { _ in  self.app }
         do {
             var appVersion: AppVersion?
 
@@ -101,21 +100,22 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
                 try self.verify(appVersion)
             }
 
-            try await self.download(appVersion ?? app)
+            return try await self.download(appVersion ?? app)
+            
         } catch let error as VerificationError where error.code == .iOSVersionNotSupported {
-            guard let presentingViewController = self.context.presentingViewController, let storeApp = app.storeApp, let latestSupportedVersion = storeApp.latestSupportedVersion,
+            guard let presentingViewController = self.context.presentingViewController,
+                  let storeApp = app.storeApp,
+                  let latestSupportedVersion = storeApp.latestSupportedVersion,
                   case let version = latestSupportedVersion.version,
                   version != storeApp.installedApp?.version
             else {
-                self.finish(.failure(error))
-                return
+                throw error
             }
 
             if let installedApp = storeApp.installedApp {
                 // guard !installedApp.matches(latestSupportedVersion) else { return self.finish(.failure(error)) }
                 guard installedApp.hasUpdate else {
-                    self.finish(.failure(error))
-                    return
+                    throw error
                 }
             }
 
@@ -123,24 +123,25 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
             let message = error.localizedDescription + "\n\n" + NSLocalizedString("Would you like to download the last version compatible with this device instead?", comment: "")
             let localizedVersion = latestSupportedVersion.localizedVersion
 
-            await MainActor.run {
-                let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-                alertController.addAction(UIAlertAction(title: UIAlertAction.cancel.title, style: UIAlertAction.cancel.style) { _ in
-                    self.finish(.failure(OperationError.cancelled))
-                })
-                alertController.addAction(UIAlertAction(title: String(format: NSLocalizedString("Download %@ %@", comment: ""), self.appName, localizedVersion), style: .default) { _ in
-                    Task {
-                        do {
-                            try await self.download(latestSupportedVersion)
-                        } catch {
-                            self.finish(.failure(error))
+            return try await withCheckedThrowingContinuation { continuation in
+                Task { @MainActor in
+                    let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+                    alertController.addAction(UIAlertAction(title: UIAlertAction.cancel.title, style: UIAlertAction.cancel.style) { _ in
+                        continuation.resume(throwing: OperationError.cancelled)
+                    })
+                    alertController.addAction(UIAlertAction(title: String(format: NSLocalizedString("Download %@ %@", comment: ""), self.appName, localizedVersion), style: .default) { _ in
+                        Task {
+                            do {
+                                let downloadedApp = try await self.download(latestSupportedVersion)
+                                continuation.resume(returning: downloadedApp)
+                            } catch let downloadError {
+                                continuation.resume(throwing: downloadError)
+                            }
                         }
-                    }
-                })
-                presentingViewController.present(alertController, animated: true)
+                    })
+                    presentingViewController.present(alertController, animated: true)
+                }
             }
-        } catch {
-            self.finish(.failure(error))
         }
     }
 
@@ -152,11 +153,7 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
         }
     }
     
-    private func printWithTid(_ msg: String){
-        verboseLog("DownloadAppOperation: Thread: \(Thread.current.name ?? Thread.current.description) - " + msg)
-    }
-    
-    private func download(@Managed _ app: AppProtocol) async throws {
+    private func download(@Managed _ app: AppProtocol) async throws -> ALTApplication {
         guard let sourceURL = self.sourceURL else {
             throw OperationError.appNotFound(name: self.appName)
         }
@@ -178,122 +175,91 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
             }
         }
         
-        _ = try await self.downloadDependencies(for: application)
+        let dependencies = try await self.downloadDependencies(for: application)
         
         try FileManager.default.copyItem(at: application.fileURL, to: self.destinationURL, shouldReplace: true)
         
         guard let copiedApplication = ALTApplication(fileURL: self.destinationURL) else { throw OperationError.invalidApp }
-        self.finish(.success(copiedApplication))
-        
         self.progress.completedUnitCount += 1
+        return copiedApplication
+    }
+    
+    func downloadIPA(from sourceURL: URL) async throws -> ALTApplication {
+        let fileURL: URL
         
-        func downloadIPA(from sourceURL: URL) async throws -> ALTApplication {
-            let fileURL: URL
-            
-            if sourceURL.isFileURL {
-                fileURL = sourceURL
-                self.progress.completedUnitCount += 3
-            } else {
-                // Regular app
-                fileURL = try await downloadFile(from: sourceURL)
-                self.printWithTid("downloadFile: completed at \(fileURL.path)")
-            }
-            
-            defer {
-                if !sourceURL.isFileURL && FileManager.default.fileExists(atPath: fileURL.path) {
-                    try? FileManager.default.removeItem(at: fileURL)
-                }
-            }
-            
-            var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else {
-                throw OperationError.appNotFound(name: self.appName)
-            }
-            
-            try FileManager.default.createDirectory(at: self.temporaryDirectory, withIntermediateDirectories: true, attributes: nil)
-            
-            let appBundleURL: URL
-            
-            if isDirectory.boolValue {
-                // Directory, so assuming this is .app bundle.
-                guard Bundle(url: fileURL) != nil else { throw OperationError.invalidApp }
-                
-                appBundleURL = self.temporaryDirectory.appendingPathComponent(fileURL.lastPathComponent)
-                try FileManager.default.copyItem(at: fileURL, to: appBundleURL)
-            } else {
-                // File, so assuming this is a .ipa file.
-                appBundleURL = try FileManager.default.unzipAppBundle(at: fileURL, toDirectory: self.temporaryDirectory)
-                
-                // Use context's temporaryDirectory to ensure .ipa isn't deleted before we're done installing.
-                let ipaURL = self.context.temporaryDirectory.appendingPathComponent("App.ipa")
-                try FileManager.default.copyItem(at: fileURL, to: ipaURL)
-                
-                self.context.ipaURL = ipaURL
-            }
-            
-            guard let application = ALTApplication(fileURL: appBundleURL) else { throw OperationError.invalidApp }
-
-            // perform cleanup of the temp files
-            if(FileManager.default.fileExists(atPath: fileURL.path)){
-                self.printWithTid("Removing downloaded temp file at: \(fileURL.path)")
-                do {
-                    try FileManager.default.removeItem(at: fileURL)
-                } catch {
-                    self.printWithTid("Removing downloaded temp error: \(error)")
-                }
-            }
-
-            return application
+        if sourceURL.isFileURL {
+            fileURL = sourceURL
+            self.progress.completedUnitCount += 3
+        } else {
+            // Regular app
+            fileURL = try await downloadFile(from: sourceURL)
         }
         
-        func downloadFile(from downloadURL: URL) async throws -> URL {
-            self.printWithTid("download started: \(downloadURL)")
+        defer {
+            if !sourceURL.isFileURL && FileManager.default.fileExists(atPath: fileURL.path) {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        }
+        
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else {
+            throw OperationError.appNotFound(name: self.appName)
+        }
+        
+        try FileManager.default.createDirectory(at: self.temporaryDirectory, withIntermediateDirectories: true, attributes: nil)
+        
+        let appBundleURL: URL
+        
+        if isDirectory.boolValue {
+            // Directory, so assuming this is .app bundle.
+            guard Bundle(url: fileURL) != nil else { throw OperationError.invalidApp }
+            
+            appBundleURL = self.temporaryDirectory.appendingPathComponent(fileURL.lastPathComponent)
+            try FileManager.default.copyItem(at: fileURL, to: appBundleURL)
+        } else {
+            // File, so assuming this is a .ipa file.
+            appBundleURL = try FileManager.default.unzipAppBundle(at: fileURL, toDirectory: self.temporaryDirectory)
+            
+            // Use context's temporaryDirectory to ensure .ipa isn't deleted before we're done installing.
+            let ipaURL = self.context.temporaryDirectory.appendingPathComponent("App.ipa")
+            try FileManager.default.copyItem(at: fileURL, to: ipaURL)
+            
+            self.context.ipaURL = ipaURL
+        }
+        
+        guard let application = ALTApplication(fileURL: appBundleURL) else { throw OperationError.invalidApp }
+
+        // perform cleanup of the temp files
+        if(FileManager.default.fileExists(atPath: fileURL.path)){
+            verboseLog("Removing downloaded temp file at: \(fileURL.path)")
+            do {
+                try FileManager.default.removeItem(at: fileURL)
+            } catch {
+                verboseLog("Removing downloaded temp error: \(error)")
+            }
+        }
+
+        return application
+    }
+    
+    func downloadFile(from downloadURL: URL) async throws -> URL {
+        debugLog("download started: \(downloadURL)")
+        do {
             let (fileURL, response) = try await self.session.download(from: downloadURL)
-            if let response = response as? HTTPURLResponse {
-                guard response.statusCode != 403 else { throw URLError(.noPermissionsToReadFile) }
-                guard response.statusCode != 404 else { throw CocoaError(.fileNoSuchFile, userInfo: [NSURLErrorKey: downloadURL]) }
+            let resp = response as? HTTPURLResponse
+            debugLog("downloadFile: completed with response: \(String(describing: resp)) at \(fileURL.path)")
+            if let resp {
+                guard resp.statusCode != 403 else { throw URLError(.noPermissionsToReadFile) }
+                guard resp.statusCode != 404 else { throw CocoaError(.fileNoSuchFile, userInfo: [NSURLErrorKey: downloadURL]) }
             }
             self.progress.completedUnitCount += 3
             return fileURL
+        }catch{
+            debugLog("download failed for url: \(downloadURL)")
+            throw error
         }
     }
-
-    struct AltStorePlist: Decodable {
-        private enum CodingKeys: String, CodingKey {
-            case dependencies = "ALTDependencies"
-        }
-
-        var dependencies: [Dependency]
-    }
-
-    struct Dependency: Decodable {
-        var downloadURL: URL
-        var path: String?
-        
-        var preferredFilename: String {
-            let preferredFilename = self.path.map { ($0 as NSString).lastPathComponent } ?? self.downloadURL.lastPathComponent
-            return preferredFilename
-        }
-        
-        init(from decoder: Decoder) throws {
-            enum CodingKeys: String, CodingKey {
-                case downloadURL
-                case path
-            }
-            
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            
-            let urlString = try container.decode(String.self, forKey: .downloadURL)
-            let path = try container.decodeIfPresent(String.self, forKey: .path)
-            
-            guard let downloadURL = URL(string: urlString) else {
-                throw DecodingError.dataCorruptedError(forKey: .downloadURL, in: container, debugDescription: "downloadURL is not a valid URL.")
-            }
-            
-            self.downloadURL = downloadURL
-            self.path = path
-        }
-    }
+    
     
     private func downloadDependencies(for application: ALTApplication) async throws -> Set<URL> {
         guard FileManager.default.fileExists(atPath: application.bundle.altstorePlistURL.path) else {
@@ -331,6 +297,46 @@ final class DownloadAppOperation: ResultOperation<ALTApplication>, OperationLogg
         } catch let error as NSError {
             let localizedFailure = String(format: NSLocalizedString("The dependency '%@' could not be downloaded.", comment: ""), dependency.preferredFilename)
             throw error.withLocalizedFailure(localizedFailure)
+        }
+    }
+}
+
+
+extension DownloadAppOperation {
+    struct AltStorePlist: Decodable {
+        private enum CodingKeys: String, CodingKey {
+            case dependencies = "ALTDependencies"
+        }
+
+        var dependencies: [Dependency]
+    }
+    
+    struct Dependency: Decodable {
+        var downloadURL: URL
+        var path: String?
+        
+        var preferredFilename: String {
+            let preferredFilename = self.path.map { ($0 as NSString).lastPathComponent } ?? self.downloadURL.lastPathComponent
+            return preferredFilename
+        }
+        
+        init(from decoder: Decoder) throws {
+            enum CodingKeys: String, CodingKey {
+                case downloadURL
+                case path
+            }
+            
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            let urlString = try container.decode(String.self, forKey: .downloadURL)
+            let path = try container.decodeIfPresent(String.self, forKey: .path)
+            
+            guard let downloadURL = URL(string: urlString) else {
+                throw DecodingError.dataCorruptedError(forKey: .downloadURL, in: container, debugDescription: "downloadURL is not a valid URL.")
+            }
+            
+            self.downloadURL = downloadURL
+            self.path = path
         }
     }
 }
