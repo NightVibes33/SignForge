@@ -37,9 +37,11 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         guard !didFinishLaunching else { return }
         startTime = Date()
         
-        // spin off the startup sequence
+        // spin off the startup sequence concurrently
         Task.detached { [weak self] in
             await self?.runLaunchSequence()
+        }
+        Task.detached { [weak self] in
             await self?.doPostLaunch()
         }
     }
@@ -66,74 +68,9 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
     }
 
     private nonisolated func doPostLaunch() async {
-        await SideJITManager.shared.checkAndPromptIfNeeded(presentingVC: self)
-        if #available(iOS 17, *), UserDefaults.standard.sidejitenable {
-            await SideJITManager.shared.askForNetwork()
-            debugLog("SideJITServer Enabled")
-        }
-
         #if !targetEnvironment(simulator)
-        
         await detectAndImportAccountFile()
-        
-        if UserDefaults.standard.enableEMPforWireguard {
-            startEMProxy(bind_addr: AppConstants.Proxy.serverURL)
-        }
-        
-        if let pf = await getSavedPairingFile() {
-            await start_minimuxer_threads(pf)
-        } else {
-            await showPairingPrompt(isRetry: false)
-        }
         #endif
-    }
-
-    nonisolated func start_minimuxer_threads(_ pairing_file: String) async {
-        do {
-            let loggingEnabled = UserDefaults.standard.isMinimuxerConsoleLoggingEnabled
-            minimuxerSetLogging(loggingEnabled)
-            try await minimuxerStart(pairing_file, mountPath: FileManager.default.documentsDirectory.absoluteString)
-            
-            // Validate the pairing by trying to fetch the UDID
-            do {
-                try await fetchUDID()
-            } catch {
-                if error.isMinimuxerPairingFile {
-                    await handleInvalidPairingFile(error: error)
-                } else {
-                    debugLog("[SideStore] fetchUDID failed but not due to invalid pairing: \(error)")
-                }
-            }
-        } catch {
-            if error.isMinimuxerPairingFile {
-                await handleInvalidPairingFile(error: error)
-            } else {
-                debugLog("[SideStore] minimuxerStart failed with general error: \(error).")
-                await displayError("minimuxer failed to start, please restart SideStore. \((error as? LocalizedError)?.failureReason ?? "UNKNOWN ERROR")")
-            }
-        }
-    }
-
-    nonisolated func handleInvalidPairingFile(error: Error) async {
-        debugLog("[SideStore] Invalid pairing file detected: \(error)")
-        await showPairingPrompt(isRetry: true)
-    }
-
-    func getSavedPairingFile() -> String? {
-        let fm = FileManager.default
-        let documentsPath = fm.documentsDirectory.appendingPathComponent(pairingFileName)
-        if fm.fileExists(atPath: documentsPath.path),
-           let contents = try? String(contentsOf: documentsPath), !contents.isEmpty {
-            return contents
-        }
-        if let url = Bundle.main.url(forResource: "ALTPairingFile", withExtension: "mobiledevicepairing"),
-           fm.fileExists(atPath: url.path),
-           let data = fm.contents(atPath: url.path),
-           let contents = String(data: data, encoding: .utf8),
-           !contents.isEmpty, !UserDefaults.standard.isPairingReset { return contents }
-        if let plistString = Bundle.main.object(forInfoDictionaryKey: "ALTPairingFile") as? String,
-           !plistString.isEmpty, !plistString.contains("insert pairing file here"), !UserDefaults.standard.isPairingReset { return plistString }
-        return nil
     }
 
     @MainActor
@@ -204,8 +141,14 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
             debugLog("[LaunchViewController] Successfully copied and saved pairing file to: \(documentsPath.path)")
             UserDefaults.standard.isPairingReset = false
             
-            Task{
-                await self.start_minimuxer_threads(pairingString)
+            Task {
+                do {
+                    try await AppBootManager.shared.startMinimuxer(pairingFile: pairingString)
+                } catch {
+                    await MainActor.run {
+                        self.showPairingPrompt(isRetry: true)
+                    }
+                }
             }
         } catch {
             debugLog("[LaunchViewController] Error importing pairing file: \(error)")
@@ -217,7 +160,7 @@ final class LaunchViewController: UIViewController, UIDocumentPickerDelegate {
         self.showPairingPrompt(isRetry: true)
     }
 
-    func fetchPairingFile() -> String? { getSavedPairingFile() }
+    func fetchPairingFile() -> String? { AppBootManager.shared.getSavedPairingFile() }
 
     @MainActor
     func displayError(_ msg: String) {
@@ -336,9 +279,17 @@ extension LaunchViewController {
         UIView.transition(with: view, duration: 0.3, options: .transitionCrossDissolve) { [self] in
             self.splashView.alpha = 0
             destinationVC.view.alpha = 1
-        } completion: { _ in
+        } completion: { [self] _ in
             self.splashView.removeFromSuperview()
             self.destinationViewController = destinationVC
+            
+            if AppBootManager.shared.needsPairingPrompt {
+                self.showPairingPrompt(isRetry: false)
+            }
+            
+            if AppBootManager.shared.needsSideJITPrompt {
+                SideJITManager.shared.presentJITPrompt(presentingVC: self)
+            }
         }
     }
 
@@ -426,47 +377,18 @@ final class SplashView: UIView {
 }
 
 
-
-// MARK: - SideJITManager
 final class SideJITManager {
     static let shared = SideJITManager()
     
-    func checkAndPromptIfNeeded(presentingVC: UIViewController?) async {
-        guard #available(iOS 17, *), !UserDefaults.standard.sidejitenable else { return }
-        do {
-            try await self.isSideJITServerDetected()
-            await MainActor.run {
-                guard let presentingVC else { return }
-                let alert = UIAlertController(
-                    title: "SideJITServer Detected",
-                    message: "Would you like to enable SideJITServer",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in UserDefaults.standard.sidejitenable = true })
-                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-                presentingVC.present(alert, animated: true)
-            }
-        } catch {
-            debugLog("Cannot find sideJITServer")
-        }
-    }
-
-    func askForNetwork() async {
-        let address = UserDefaults.standard.textInputSideJITServerurl ?? ""
-        let SJSURL = address.isEmpty ? "http://sidejitserver._http._tcp.local:8080" : address
-        guard let url = URL(string: "\(SJSURL)/re/") else { return }
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            debugLog("data: \(data), response: \(response)")
-        } catch {
-            debugLog("error: \(error)")
-        }
-    }
-
-    func isSideJITServerDetected() async throws {
-        let address = UserDefaults.standard.textInputSideJITServerurl ?? ""
-        let SJSURL = address.isEmpty ? "http://sidejitserver._http._tcp.local:8080" : address
-        guard let url = URL(string: SJSURL) else { throw URLError(.badURL) }
-        _ = try await URLSession.shared.data(from: url)
+    @MainActor
+    func presentJITPrompt(presentingVC: UIViewController) {
+        let alert = UIAlertController(
+            title: "SideJITServer Detected",
+            message: "Would you like to enable SideJITServer",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in UserDefaults.standard.sidejitenable = true })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        presentingVC.present(alert, animated: true)
     }
 }

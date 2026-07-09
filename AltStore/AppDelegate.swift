@@ -95,6 +95,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         
         
+        Task {
+            await AppBootManager.shared.performBootSequence()
+        }
+        
         DatabaseManager.shared.start { (error) in
             if let error = error
             {
