@@ -44,55 +44,6 @@ class AppManager: ObservableObject
     static let shared = AppManager()
 
     private static let restartLock = NSLock()
-    private static var _needsMuxerServicesRestart = false
-    private static var _muxerRestartError: Error?
-    public static var needsMuxerServicesRestart: Bool {
-        get {
-            restartLock.lock()
-            defer { restartLock.unlock() }
-            return _needsMuxerServicesRestart
-        }
-        set {
-            restartLock.lock()
-            defer { restartLock.unlock() }
-            _needsMuxerServicesRestart = newValue
-            if !newValue {
-                _muxerRestartError = nil
-            }
-        }
-    }
-
-    public static var muxerRestartError: Error? {
-        restartLock.lock()
-        defer { restartLock.unlock() }
-        return _muxerRestartError
-    }
-
-    public static func markMuxerServicesNeedsRestart(error: Error) {
-        restartLock.lock()
-        _muxerRestartError = error
-        _needsMuxerServicesRestart = true
-        restartLock.unlock()
-    }
-
-    private static func restartMuxerServices() async throws {
-        var attempts = 0
-        while attempts < 3 {
-            do {
-                try await minimuxerRestart()
-                AppManager.needsMuxerServicesRestart = false
-                return
-            } catch {
-                if error.isMinimuxerRestartInProgress {
-                    attempts += 1
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                } else {
-                    throw error
-                }
-            }
-        }
-        throw MinimuxerWrapperError.restartAlreadyInProgress
-    }
     
     private(set) var updatePatronsResult: Result<Void, Error>?
     
@@ -1185,15 +1136,6 @@ private extension AppManager
         {
             let progress = Progress.discreteProgress(totalUnitCount: 100)
             self.set(progress, for: operation)
-        }
-        
-        do {
-            try await self.evaluateMuxerServicesRestart(presentingViewController: presentingViewController)
-        } catch {
-            for operation in operations {
-                self.set(nil, for: operation)
-            }
-            throw error
         }
         
         if let viewController = presentingViewController
@@ -2403,66 +2345,66 @@ private extension AppManager {
         }
     }
 }
-
-private extension AppManager {
-    func evaluateMuxerServicesRestart(presentingViewController: UIViewController?) async throws {
-        guard AppManager.needsMuxerServicesRestart else { return }
-        var currentError = AppManager.muxerRestartError
-        var isFirstPrompt = true
-
-        while true {
-            if currentError?.isMinimuxerPairingFile == true {
-                let fm = FileManager.default
-                let documentsPath = fm.documentsDirectory.appendingPathComponent(PairingFileManager.pairingFileName)
-                
-                // If this is the first iteration, try to reload from disk first (useful if iloader replaced it while in background)
-                if isFirstPrompt,
-                   fm.fileExists(atPath: documentsPath.path),
-                   let contents = try? String(contentsOf: documentsPath),
-                   !contents.isEmpty {
-                    
-                    isFirstPrompt = false
-                    debugLog("[PairingFile] Automatically reloading pairing file from disk...")
-                    do {
-                        try await reinitializePairingData(contents)
-                        try await AppManager.restartMuxerServices()
-                        return
-                    } catch {
-                        currentError = error
-                        // Continue to picker prompt if auto-reload fails
-                    }
-                }
-                
-                guard let presentingVC = presentingViewController else {
-                    throw currentError!
-                }
-
-                let title = isFirstPrompt
-                    ? NSLocalizedString("Current Pairing file is Invalid", comment: "")
-                    : NSLocalizedString("Selected Pairing file is still Invalid!", comment: "")
-                isFirstPrompt = false
-
-                let url = try await PairingFileManager.shared.importPairingFile(
-                    presentingVC: presentingVC,
-                    title: title,
-                    message: NSLocalizedString("Select 'OK' to locate the latest pairing file or tap 'Help' for more info", comment: "")
-                )
-                
-                if let contents = try? String(contentsOf: url), !contents.isEmpty {
-                    debugLog("[AppManager] Reloading updated pairing file after user import...")
-                    try? await reinitializePairingData(contents)
-                }
-            }
-
-            do {
-                try await AppManager.restartMuxerServices()
-                return
-            } catch {
-                currentError = error
-                guard error.isMinimuxerPairingFile else {
-                    throw error
-                }
-            }
-        }
-    }
-}
+//
+//private extension AppManager {
+//    func evaluateMuxerServicesRestart(presentingViewController: UIViewController?) async throws {
+//        guard AppManager.needsMuxerServicesRestart else { return }
+//        var currentError = AppManager.muxerRestartError
+//        var isFirstPrompt = true
+//
+//        while true {
+//            if currentError?.isMinimuxerPairingFile == true {
+//                let fm = FileManager.default
+//                let documentsPath = fm.documentsDirectory.appendingPathComponent(PairingFileManager.pairingFileName)
+//                
+//                // If this is the first iteration, try to reload from disk first (useful if iloader replaced it while in background)
+//                if isFirstPrompt,
+//                   fm.fileExists(atPath: documentsPath.path),
+//                   let contents = try? String(contentsOf: documentsPath),
+//                   !contents.isEmpty {
+//                    
+//                    isFirstPrompt = false
+//                    debugLog("[PairingFile] Automatically reloading pairing file from disk...")
+//                    do {
+//                        try await reinitializePairingData(contents)
+//                        try await AppManager.restartMuxerServices()
+//                        return
+//                    } catch {
+//                        currentError = error
+//                        // Continue to picker prompt if auto-reload fails
+//                    }
+//                }
+//                
+//                guard let presentingVC = presentingViewController else {
+//                    throw currentError!
+//                }
+//
+//                let title = isFirstPrompt
+//                    ? NSLocalizedString("Current Pairing file is Invalid", comment: "")
+//                    : NSLocalizedString("Selected Pairing file is still Invalid!", comment: "")
+//                isFirstPrompt = false
+//
+//                let url = try await PairingFileManager.shared.importPairingFile(
+//                    presentingVC: presentingVC,
+//                    title: title,
+//                    message: NSLocalizedString("Select 'OK' to locate the latest pairing file or tap 'Help' for more info", comment: "")
+//                )
+//                
+//                if let contents = try? String(contentsOf: url), !contents.isEmpty {
+//                    debugLog("[AppManager] Reloading updated pairing file after user import...")
+//                    try? await reinitializePairingData(contents)
+//                }
+//            }
+//
+//            do {
+//                try await AppManager.restartMuxerServices()
+//                return
+//            } catch {
+//                currentError = error
+//                guard error.isMinimuxerPairingFile else {
+//                    throw error
+//                }
+//            }
+//        }
+//    }
+//}

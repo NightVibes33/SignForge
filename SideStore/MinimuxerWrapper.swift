@@ -27,66 +27,69 @@ func bindTunnelConfig() async {
     #endif
 }
 
-
 enum MinimuxerStatus {
     case ready
+    case noDevice
     case noConnection
     case noVPN
-    case invalidPairingFile
-}
-
-extension MinimuxerStatus {
+    case invalidVPN
+    case pairingFile
+    case invalidPairing
+    case unknown
+    case unavailable
+    
     var operationError: OperationError? {
         switch self {
+        case .unknown:
+            return nil
         case .ready:
             return nil
+        case .noDevice:
+            return .noConnection
         case .noConnection:
             return .noConnection
         case .noVPN:
             return .noVPN
-        case .invalidPairingFile:
+        case .invalidVPN:
+            return .noVPN
+        case .pairingFile:
+            return .invalidPairingFile
+        case .invalidPairing:
             return .invalidPairingFile
         }
     }
 }
 
 var minimuxerStatus: MinimuxerStatus {
-    #if targetEnvironment(simulator)
-    debugLog("[SideStore] minimuxerStatus = true on simulator")
-    #endif
-
-    // if AppManager.needsMuxerServicesRestart && (AppManager.muxerRestartError as? MinimuxerError) == .PairingFile {
-    //     return .invalidPairingFile
-    // }
-    let semaphore = DispatchSemaphore(value: 0)
-    var status: MinimuxerStatus = .noVPN
-    
-    Task {
+    get async {
+        #if targetEnvironment(simulator)
+        debugLog("[SideStore] minimuxerStatus = true on simulator")
+        return .ready
+        #else
         let result = await Minimuxer.shared.isReady
         switch result {
-            case .success:
-                status = .ready
-            case .failure(let minErr):
-                switch minErr {
-                    case .noVPN, .invalidVPN:
-                        status = .noVPN
-                    case .pairingFile, .invalidPairing:
-                        status = .invalidPairingFile
-                    case .mount:
-                        status = .noConnection
-                    default:
-                        status = .noConnection
-                }
+        case .success:
+            return .ready
+        case .failure(let error):
+            switch error {
+            case .noVPN:
+                return .noVPN
+            case .invalidVPN:
+                return .invalidVPN
+            case .pairingFile:
+                return .pairingFile
+            case .invalidPairing:
+                return .invalidPairing
+            case .noDevice:
+                return .noDevice
+            case .noConnection:
+                return .noConnection
+            default:
+                return .unknown
+            }
         }
-        semaphore.signal()
+        #endif
     }
-    _ = semaphore.wait(timeout: .now() + 5.0)
-    return status
-}
-
-
-func markMuxerServicesNeedsRestart(error: Error) {
-    AppManager.markMuxerServicesNeedsRestart(error: error)
 }
 
 func reinitializePairingData(_ pairingFile: String) async throws {
