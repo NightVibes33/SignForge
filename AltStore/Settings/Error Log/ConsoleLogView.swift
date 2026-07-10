@@ -121,6 +121,7 @@ public struct ConsoleLogView: View {
     @State private var searchText: String = ""
     @State private var scrollToIndex: Int?
     @State private var showTimestamp: Bool = false
+    @State private var fontSize: CGFloat = 12
     
     private let resultHighlightColor = Color.orange
     private let resultHighlightOpacity = 0.5
@@ -135,7 +136,7 @@ public struct ConsoleLogView: View {
        VStack {
            
            // Custom Header Bar (similar to QuickLook's preview screen)
-           HStack {
+           HStack(spacing: 12) {
                Text("Console Log")
                    .font(.system(size: 22, weight: .semibold))
                    .foregroundColor(.white)
@@ -149,23 +150,39 @@ public struct ConsoleLogView: View {
                            .foregroundColor(.white)
                            .imageScale(.large)
                    }
-                   .padding(.trailing)
                }
-               SwiftUI.Button(action: {
-                   showTimestamp.toggle()
-               }) {
-                   Image(systemName: showTimestamp ? "clock.fill" : "clock")
-                       .foregroundColor(.white)
-                       .imageScale(.large)
-               }
-               .padding(.trailing)
-               SwiftUI.Button(action: {
-                   scrollToBottom.toggle()
-               }) {
-                   Image(systemName: "ellipsis")
-                       .foregroundColor(.white)
-                       .imageScale(.large)
-               }
+
+                SwiftUI.Button(action: {
+                    fontSize = max(6, fontSize - 1)
+                }) {
+                    Image(systemName: "minus")
+                        .foregroundColor(.white)
+                        .imageScale(.medium)
+                }
+                
+                SwiftUI.Button(action: {
+                    fontSize = min(30, fontSize + 1)
+                }) {
+                    Image(systemName: "plus")
+                        .foregroundColor(.white)
+                        .imageScale(.medium)
+                }
+                
+                SwiftUI.Button(action: {
+                    showTimestamp.toggle()
+                }) {
+                    Image(systemName: showTimestamp ? "clock.fill" : "clock")
+                        .foregroundColor(.white)
+                        .font(.system(size: 19))
+                }
+                
+                SwiftUI.Button(action: {
+                    scrollToBottom.toggle()
+                }) {
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.white)
+                        .imageScale(.large)
+                }
            }
            .padding(15)
            .padding(.top, 5)
@@ -237,7 +254,7 @@ public struct ConsoleLogView: View {
                             let line = viewModel.logLines[index]
                             let displayLine = showTimestamp ? line : stripTimestamp(from: line)
                             Text(displayLine)
-                                .font(.system(size: 12, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .foregroundColor(.white)
                                 .background(
                                     viewModel.searchResults.contains(index) ?
