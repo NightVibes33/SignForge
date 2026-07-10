@@ -19,7 +19,7 @@ internal extension OperationLogging {
         if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
             print(message, terminator: "")
         } else {
-            print("\(getOperationsLogTag(level: "DEBUG"))\(message)")
+            print("\(getOperationsLogTag(level: "[D]"))\(message)")
         }
     }
 
@@ -29,7 +29,7 @@ internal extension OperationLogging {
         if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
             print(message, terminator: "")
         } else {
-            print("\(getOperationsLogTag(level: "TRACE"))\(message)")
+            print("\(getOperationsLogTag(level: "[V]"))\(message)")
         }
     }
 }

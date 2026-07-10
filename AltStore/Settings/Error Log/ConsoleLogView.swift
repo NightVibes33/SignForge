@@ -120,6 +120,7 @@ public struct ConsoleLogView: View {
     
     @State private var searchText: String = ""
     @State private var scrollToIndex: Int?
+    @State private var showTimestamp: Bool = false
     
     private let resultHighlightColor = Color.orange
     private let resultHighlightOpacity = 0.5
@@ -150,6 +151,14 @@ public struct ConsoleLogView: View {
                    }
                    .padding(.trailing)
                }
+               SwiftUI.Button(action: {
+                   showTimestamp.toggle()
+               }) {
+                   Image(systemName: showTimestamp ? "clock.fill" : "clock")
+                       .foregroundColor(.white)
+                       .imageScale(.large)
+               }
+               .padding(.trailing)
                SwiftUI.Button(action: {
                    scrollToBottom.toggle()
                }) {
@@ -225,7 +234,9 @@ public struct ConsoleLogView: View {
                 ScrollViewReader { proxy in
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(viewModel.logLines.indices, id: \.self) { index in
-                            Text(viewModel.logLines[index])
+                            let line = viewModel.logLines[index]
+                            let displayLine = showTimestamp ? line : stripTimestamp(from: line)
+                            Text(displayLine)
                                 .font(.system(size: 12, design: .monospaced))
                                 .foregroundColor(.white)
                                 .background(
@@ -255,6 +266,21 @@ public struct ConsoleLogView: View {
         }
         .background(Color.black)  // Set background color to mimic QL's dark theme
         .edgesIgnoringSafeArea(.all)
+    }
+
+    private static let timestampRegex = try? NSRegularExpression(
+        pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3} \\[[A-Z]\\]: ",
+        options: []
+    )
+
+    private func stripTimestamp(from line: String) -> String {
+        guard let regex = Self.timestampRegex else { return line }
+        let range = NSRange(location: 0, length: line.utf16.count)
+        if let match = regex.firstMatch(in: line, range: range) {
+            let matchRange = Range(match.range, in: line)!
+            return String(line[matchRange.upperBound...])
+        }
+        return line
     }
 }
 

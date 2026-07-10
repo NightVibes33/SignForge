@@ -29,7 +29,7 @@ internal func debugLog(_ text: @autoclosure () -> String) {
     if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
         print(message, terminator: "")
     } else {
-        print("\(getTag(level: "DEBUG"))\(message)")
+        print("\(getTag(level: "[D]"))\(message)")
     }
 }
 
@@ -40,7 +40,7 @@ internal func verboseLog(_ text: @autoclosure () -> String) {
         if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
             print(message, terminator: "")
         } else {
-            print("\(getTag(level: "TRACE"))\(message)")
+            print("\(getTag(level: "[V]"))\(message)")
         }
     }
 }

@@ -67,6 +67,6 @@ func debugLog(_ items: Any..., separator: String = " ", terminator: String = "\n
     if !message.isEmpty && message.allSatisfy({ $0 == "\n" || $0 == "\r" }) {
         ConsoleLog.shared.log(message, terminator: "")
     } else {
-        ConsoleLog.shared.log("\(getTag(level: "DEBUG"))\(message)", terminator: terminator)
+        ConsoleLog.shared.log("\(getTag(level: "[D]"))\(message)", terminator: terminator)
     }
 }
