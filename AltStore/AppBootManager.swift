@@ -88,7 +88,13 @@ public final class AppBootManager {
         
         // 2. Structured concurrent child task B
         async let minimuxerCheck: Void = {
-            #if !targetEnvironment(simulator)
+            #if targetEnvironment(simulator)
+            do {
+                try await self.startMinimuxer(pairingFile: "ignored-for-sim")
+            } catch {
+                debugLog("[AppBootManager] Failed to start minimuxer: \(error)")
+            }
+            #else
             if let pf = self.getSavedPairingFile() {
                 do {
                     try await self.startMinimuxer(pairingFile: pf)

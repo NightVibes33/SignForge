@@ -66,6 +66,7 @@ extension SettingsViewController
     
     private enum TechyThingsRow: Int, CaseIterable
     {
+        case healthCheck
         case errorLog
         case clearCache
     }
@@ -1200,6 +1201,17 @@ extension SettingsViewController
             let row = TechyThingsRow.allCases[indexPath.row]
             switch row
             {
+            case .healthCheck:
+                let healthCheckView = HealthCheckView()
+                let vc = UIHostingController(rootView: healthCheckView)
+                
+                let appearance = UINavigationBarAppearance()
+                appearance.configureWithDefaultBackground()
+                vc.navigationItem.scrollEdgeAppearance = appearance
+                vc.navigationItem.standardAppearance = appearance
+                
+                navigationController?.pushViewController(vc, animated: true)
+                
             case .errorLog: break
             case .clearCache: self.clearCache()
             }
@@ -1440,7 +1452,6 @@ extension SettingsViewController
                 vc.navigationItem.standardAppearance = appearance
 
                 navigationController?.pushViewController(vc, animated: true)
-                
             case .certificateManagement:
                 let certificateManagementView = CertificatesView(presentingViewController: self)
                 let vc = UIHostingController(rootView: certificateManagementView)

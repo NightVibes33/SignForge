@@ -106,6 +106,7 @@ func minimuxerStart(_ pairingFile: String, mountPath: String) async throws {
     #if targetEnvironment(simulator)
     debugLog("[SideStore] minimuxerStart(pairingFile) is no-op on simulator")
     await bindTunnelConfig()
+    await Minimuxer.network.start()
     #else
     await bindTunnelConfig()
     debugLog("[SideStore] minimuxerStart(pairingFile) invoked")
