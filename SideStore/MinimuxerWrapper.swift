@@ -17,10 +17,10 @@ func bindTunnelConfig() async {
     debugLog("[SideStore] bindTunnelConfig() invoked")
     let config = TunnelConfig.shared
     let configBinding = TunnelConfigBinding(
-        setDeviceIP: { value in Task { @MainActor in config.deviceIP = value } },
-        setFakeIP: { value in Task { @MainActor in config.fakeIP = value } },
+        setTunnelIfaceIp: { value in Task { @MainActor in config.tunnelIfaceIp = value } },
+        setTunnelPeerIp: { value in Task { @MainActor in config.tunnelPeerIp = value } },
         setSubnetMask: { value in Task { @MainActor in config.subnetMask = value } },
-        getOverrideFakeIP: { config.overrideFakeIP },
+        getOverridePeerIp: { config.overridePeerIp },
         setOverrideEffective: { value in Task { @MainActor in config.overrideEffective = value } }
     )
     await Minimuxer.shared.bindTunnelConfig(configBinding)

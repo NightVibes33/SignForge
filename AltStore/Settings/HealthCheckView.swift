@@ -41,10 +41,10 @@ final class HealthCheckViewModel: ObservableObject {
     @Published var isUTunAvailable = false
     @Published var isIKEv2IPSecAvailable = false
     
-    @Published var deviceIP: String? = nil
+    @Published var tunnelIfaceIp: String? = nil
     @Published var subnetMask: String? = nil
-    @Published var fakeIP: String? = nil
-    @Published var overrideFakeIP: String = ""
+    @Published var tunnelPeerIp: String? = nil
+    @Published var overridePeerIp: String = ""
     @Published var overrideEffective = false
     
     @Published var activeProtocol = ""
@@ -79,10 +79,10 @@ final class HealthCheckViewModel: ObservableObject {
                 let utun = Minimuxer.network.isUTunAvailable
                 let ipsec = Minimuxer.network.isIKEv2IPSecAvailable
                 
-                let devIP = TunnelConfig.shared.deviceIP
+                let devIP = TunnelConfig.shared.tunnelIfaceIp
                 let subMask = TunnelConfig.shared.subnetMask
-                let fkIP = TunnelConfig.shared.fakeIP
-                let ovFakeIP = TunnelConfig.shared.overrideFakeIP
+                let fkIP = TunnelConfig.shared.tunnelPeerIp
+                let ovFakeIP = TunnelConfig.shared.overridePeerIp
                 let ovEffective = TunnelConfig.shared.overrideEffective
                 
                 let pairingType = Minimuxer.shared.getPairingFileType()
@@ -100,7 +100,7 @@ final class HealthCheckViewModel: ObservableObject {
                 let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: ovFakeIP)
                 
                 // Hop to background thread for FFI checks
-                let metrics = await checkMetrics(ovFakeIP: ovFakeIP, isRp: isRp)
+                let metrics = await checkMetrics(ovPeerIp: ovFakeIP, isRp: isRp)
                 let scanned = scanLocalInterfaces()
                 
                 let status = computeStatuses(
@@ -134,7 +134,7 @@ final class HealthCheckViewModel: ObservableObject {
     }
     
     nonisolated private func checkMetrics(
-        ovFakeIP: String?,
+        ovPeerIp: String?,
         isRp: Bool
     ) async -> (
         ddi: Bool,
@@ -271,10 +271,10 @@ final class HealthCheckViewModel: ObservableObject {
         self.isUTunAvailable = utun
         self.isIKEv2IPSecAvailable = ipsec
         
-        self.deviceIP = devIP
+        self.tunnelIfaceIp = devIP
         self.subnetMask = subMask
-        self.fakeIP = fkIP
-        self.overrideFakeIP = ovFakeIP ?? "N/A"
+        self.tunnelPeerIp = fkIP
+        self.overridePeerIp = ovFakeIP ?? "N/A"
         self.overrideEffective = ovEffective
         
         self.activeProtocol = protocolStr
@@ -449,11 +449,11 @@ struct HealthCheckView: View {
             }
             
             // Section 3: Discovered Configs
-            Section(header: Text("Device IP Configuration")) {
-                ConfigRow(label: "Assigned Device IP", value: viewModel.deviceIP)
+            Section(header: Text("VPN IP Configuration")) {
+                ConfigRow(label: "Tunnel Iface IP", value: viewModel.tunnelIfaceIp)
                 ConfigRow(label: "Subnet Mask", value: viewModel.subnetMask)
-                ConfigRow(label: "Fake IP", value: viewModel.fakeIP)
-                ConfigRow(label: "Override IP", value: viewModel.overrideFakeIP.isEmpty ? nil : viewModel.overrideFakeIP)
+                ConfigRow(label: "Tunnel Peer IP", value: viewModel.tunnelPeerIp)
+                ConfigRow(label: "Override Peer IP", value: viewModel.overridePeerIp.isEmpty ? nil : viewModel.overridePeerIp)
                 HStack {
                     Text("Override Status")
                     Spacer()

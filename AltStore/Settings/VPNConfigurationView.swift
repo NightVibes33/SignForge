@@ -62,16 +62,16 @@ struct VPNConfigurationView: View {
             List {
                 Section(header: Text("Discovered from network")) {
                     Group {
-                        networkConfigRow(label: "Tunnel IP", text: $config.deviceIP, editable: false)
-                        networkConfigRow(label: "Device IP", text: $config.fakeIP, editable: false)
+                        networkConfigRow(label: "Tunnel Iface IP", text: $config.tunnelIfaceIp, editable: false)
+                        networkConfigRow(label: "Tunnel Peer  IP", text: $config.tunnelPeerIp, editable: false)
                         networkConfigRow(label: "Subnet Mask", text: $config.subnetMask, editable: false)
                     }
                 }
                 
                 Section {
                     networkConfigRow(
-                        label: "Device IP",
-                        text: Binding<String?>(get: { config.overrideFakeIP }, set: { config.overrideFakeIP = $0 ?? "" }),
+                        label: "Tunnel Peer IP",
+                        text: Binding<String?>(get: { config.overridePeerIp }, set: { config.overridePeerIp = $0 ?? "" }),
                         editable: true
                     )
                     networkConfigRow(
@@ -85,7 +85,7 @@ struct VPNConfigurationView: View {
                 } footer: {
                     HStack(alignment: .top, spacing: 0) {
                         Text("Note: ")
-                        Text("'Device IP' is mandatory and should match exactly as in the target VPN's config")
+                        Text("'Tunnel Peer IP' is mandatory and should match exactly as in the target VPN's config")
                     }
                 }
             }
@@ -184,17 +184,17 @@ final class TunnelConfig: ObservableObject {
 
     private static let defaultOverrideIP: String = "10.7.0.1"
 
-    @Published var deviceIP: String?
+    @Published var tunnelIfaceIp: String?
     @Published var subnetMask: String?
-    @Published var fakeIP: String?
-    @Published var overrideFakeIP: String = overrideIPStorage {
-        didSet { Self.overrideIPStorage = overrideFakeIP }
+    @Published var tunnelPeerIp: String?
+    @Published var overridePeerIp: String = overrideIPStorage {
+        didSet { Self.overrideIPStorage = overridePeerIp }
     }
     @Published var overrideEffective: Bool = false
  
     private static var overrideIPStorage: String {
-        get { UserDefaults.standard.string(forKey: "TunnelOverrideFakeIP") ?? defaultOverrideIP }
-        set { UserDefaults.standard.set(newValue, forKey: "TunnelOverrideFakeIP") }
+        get { UserDefaults.standard.string(forKey: "TunnelOverridePeerIp") ?? defaultOverrideIP }
+        set { UserDefaults.standard.set(newValue, forKey: "TunnelOverridePeerIp") }
     }
 
     var overrideActive: ActiveState { overrideEffective ? .yes : .no }
