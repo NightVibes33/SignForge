@@ -36,6 +36,7 @@ struct LocalInterfaceInfo: Hashable, Identifiable {
 final class HealthCheckViewModel: ObservableObject {
     @Published var isWifiSatisfied = false
     @Published var isWiredSatisfied = false
+    @Published var isUsbSatisfied = false
     @Published var isBridgeSatisfied = false
     @Published var isUTunAvailable = false
     @Published var isIKEv2IPSecAvailable = false
@@ -73,6 +74,7 @@ final class HealthCheckViewModel: ObservableObject {
             while !Task.isCancelled {
                 let wifi = Minimuxer.network.isWifiSatisfied
                 let wired = Minimuxer.network.isWiredSatisfied
+                let usb = Minimuxer.network.isUsbSatisfied
                 let bridge = Minimuxer.network.isBridgeSatisfied
                 let utun = Minimuxer.network.isUTunAvailable
                 let ipsec = Minimuxer.network.isIKEv2IPSecAvailable
@@ -106,6 +108,7 @@ final class HealthCheckViewModel: ObservableObject {
                     isRp: isRp,
                     wifi: wifi,
                     wired: wired,
+                    usb: usb,
                     bridge: bridge,
                     utun: utun,
                     ipsec: ipsec,
@@ -116,7 +119,7 @@ final class HealthCheckViewModel: ObservableObject {
                 
                 // Update UI back on Main Actor
                 updateUI(
-                    wifi: wifi, wired: wired, bridge: bridge, utun: utun, ipsec: ipsec,
+                    wifi: wifi, wired: wired, usb: usb, bridge: bridge, utun: utun, ipsec: ipsec,
                     devIP: devIP, subMask: subMask, fkIP: fkIP, ovFakeIP: ovFakeIP, ovEffective: ovEffective,
                     protocolStr: protocolStr, pingSuccess: pingSuccess,
                     ddi: metrics.ddi, pairingVerified: metrics.pairingVerified,
@@ -149,6 +152,7 @@ final class HealthCheckViewModel: ObservableObject {
         isRp: Bool,
         wifi: Bool,
         wired: Bool,
+        usb: Bool,
         bridge: Bool,
         utun: Bool,
         ipsec: Bool,
@@ -237,7 +241,7 @@ final class HealthCheckViewModel: ObservableObject {
                 ddiSat = true
                 
             default:
-                netSat = wifi || wired || bridge
+                netSat = wifi || wired || usb || bridge
                 vpnSat = utun
                 ipsecSat = isRp ? nil : ipsec
                 pingSat = pingSuccess
@@ -254,7 +258,7 @@ final class HealthCheckViewModel: ObservableObject {
     }
     
     private func updateUI(
-        wifi: Bool, wired: Bool, bridge: Bool, utun: Bool, ipsec: Bool,
+        wifi: Bool, wired: Bool, usb: Bool, bridge: Bool, utun: Bool, ipsec: Bool,
         devIP: String?, subMask: String?, fkIP: String?, ovFakeIP: String?, ovEffective: Bool,
         protocolStr: String, pingSuccess: Bool, ddi: Bool, pairingVerified: Bool,
         netSat: Bool?, vpnSat: Bool?, ipsecSat: Bool?, pingSat: Bool?, pairingSat: Bool?, ddiSat: Bool?,
@@ -262,6 +266,7 @@ final class HealthCheckViewModel: ObservableObject {
     ) {
         self.isWifiSatisfied = wifi
         self.isWiredSatisfied = wired
+        self.isUsbSatisfied = usb
         self.isBridgeSatisfied = bridge
         self.isUTunAvailable = utun
         self.isIKEv2IPSecAvailable = ipsec
@@ -404,7 +409,7 @@ struct HealthCheckView: View {
             Section(header: Text("Core Requirements")) {
                 DependencyRow(
                     title: "Network Connectivity",
-                    subtitle: viewModel.isWifiSatisfied ? "Wi-Fi Active" : (viewModel.isWiredSatisfied ? "Ethernet Active" : (viewModel.isBridgeSatisfied ? "Bridge Active" : "No Connection")),
+                    subtitle: viewModel.isWifiSatisfied ? "Wi-Fi Active" : (viewModel.isUsbSatisfied ? "USB Connection Active" : (viewModel.isWiredSatisfied ? "Ethernet Active" : (viewModel.isBridgeSatisfied ? "Bridge Active" : "No Connection"))),
                     isSatisfied: viewModel.networkSatisfied
                 )
                 
