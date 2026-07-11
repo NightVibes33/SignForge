@@ -44,8 +44,6 @@ final class HealthCheckViewModel: ObservableObject {
     @Published var tunnelIfaceIp: String? = nil
     @Published var subnetMask: String? = nil
     @Published var tunnelPeerIp: String? = nil
-    @Published var overridePeerIp: String = ""
-    @Published var overrideEffective = false
     
     @Published var activeProtocol = ""
     @Published var isPingSuccessful = false
@@ -82,8 +80,6 @@ final class HealthCheckViewModel: ObservableObject {
                 let tunnelIfaceIp = TunnelConfig.shared.tunnelIfaceIp
                 let subnetMask = TunnelConfig.shared.subnetMask
                 let tunnelPeerIp = TunnelConfig.shared.tunnelPeerIp
-                let overridePeerIp = TunnelConfig.shared.overridePeerIp
-                let overrideEffective = TunnelConfig.shared.overrideEffective
                 
                 let pairingType = Minimuxer.shared.getPairingFileType()
                 let isRp = pairingType == .rppairing
@@ -97,10 +93,10 @@ final class HealthCheckViewModel: ObservableObject {
                     protocolStr = "Unknown"
                 }
                 
-                let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: overridePeerIp)
+                let pingSuccess = (tunnelPeerIp != nil) ? Minimuxer.shared.testDeviceConnection(ifaddr: tunnelPeerIp!) : false
                 
                 // Hop to background thread for FFI checks
-                let metrics = await self.checkMetrics(overridePeerIp: overridePeerIp, isRp: isRp)
+                let metrics = await self.checkMetrics(isRp: isRp)
                 let scanned = self.scanLocalInterfaces()
                 
                 let status = self.computeStatuses(
@@ -120,7 +116,7 @@ final class HealthCheckViewModel: ObservableObject {
                 // Update UI back on Main Actor
                 await self.updateUI(
                     wifi: wifi, wired: wired, usb: usb, bridge: bridge, utun: utun, ipsec: ipsec,
-                    tunnelIfaceIp: tunnelIfaceIp, subnetMask: subnetMask, tunnelPeerIp: tunnelPeerIp, overridePeerIp: overridePeerIp, overrideEffective: overrideEffective,
+                    tunnelIfaceIp: tunnelIfaceIp, subnetMask: subnetMask, tunnelPeerIp: tunnelPeerIp,
                     protocolStr: protocolStr, pingSuccess: pingSuccess,
                     ddi: metrics.ddi, pairingVerified: metrics.pairingVerified,
                     netSat: status.netSat, vpnSat: status.vpnSat, ipsecSat: status.ipsecSat,
@@ -134,7 +130,6 @@ final class HealthCheckViewModel: ObservableObject {
     }
     
     nonisolated private func checkMetrics(
-        overridePeerIp: String?,
         isRp: Bool
     ) async -> (
         ddi: Bool,
@@ -260,7 +255,7 @@ final class HealthCheckViewModel: ObservableObject {
     @MainActor
     private func updateUI(
         wifi: Bool, wired: Bool, usb: Bool, bridge: Bool, utun: Bool, ipsec: Bool,
-        tunnelIfaceIp: String?, subnetMask: String?, tunnelPeerIp: String?, overridePeerIp: String?, overrideEffective: Bool,
+        tunnelIfaceIp: String?, subnetMask: String?, tunnelPeerIp: String?,
         protocolStr: String, pingSuccess: Bool, ddi: Bool, pairingVerified: Bool,
         netSat: Bool?, vpnSat: Bool?, ipsecSat: Bool?, pingSat: Bool?, pairingSat: Bool?, ddiSat: Bool?,
         readyResult: Result<Bool, MinimuxerError>, scanned: [LocalInterfaceInfo]
@@ -275,8 +270,6 @@ final class HealthCheckViewModel: ObservableObject {
         self.tunnelIfaceIp = tunnelIfaceIp
         self.subnetMask = subnetMask
         self.tunnelPeerIp = tunnelPeerIp
-        self.overridePeerIp = overridePeerIp ?? "N/A"
-        self.overrideEffective = overrideEffective
         
         self.activeProtocol = protocolStr
         self.isPingSuccessful = pingSuccess
@@ -454,13 +447,6 @@ struct HealthCheckView: View {
                 ConfigRow(label: "Tunnel Iface IP", value: viewModel.tunnelIfaceIp)
                 ConfigRow(label: "Subnet Mask", value: viewModel.subnetMask)
                 ConfigRow(label: "Tunnel Peer IP", value: viewModel.tunnelPeerIp)
-                ConfigRow(label: "Override Peer IP", value: viewModel.overridePeerIp.isEmpty ? nil : viewModel.overridePeerIp)
-                HStack {
-                    Text("Override Status")
-                    Spacer()
-                    Text(viewModel.overrideEffective ? "Active" : "Inactive")
-                        .foregroundColor(viewModel.overrideEffective ? .green : .secondary)
-                }
                 HStack {
                     Text("Active Protocol")
                     Spacer()
