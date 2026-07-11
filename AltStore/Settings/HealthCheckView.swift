@@ -60,91 +60,98 @@ final class HealthCheckViewModel: ObservableObject {
     
     @Published var minimuxerReadyResult: Result<Bool, MinimuxerError>? = nil
     @Published var availableInterfaces: [LocalInterfaceInfo] = []
-    @Published var isPolling = false
-    
-    private var pollingTask: Task<Void, Never>? = nil
-    
-    deinit {
-        pollingTask?.cancel()
+    struct HealthCheckMetrics {
+        let wifi: Bool
+        let wired: Bool
+        let usb: Bool
+        let bridge: Bool
+        let utun: Bool
+        let ipsec: Bool
+        let tunnelIfaceIp: String?
+        let subnetMask: String?
+        let tunnelPeerIp: String?
+        let protocolStr: String
+        let pingSuccess: Bool
+        let ddi: Bool
+        let pairingVerified: Bool
+        let readyResult: Result<Bool, MinimuxerError>
+        let scanned: [LocalInterfaceInfo]
     }
-    
-    func startPolling() {
-        guard !isPolling else { return }
-        isPolling = true
+
+    nonisolated private func fetchMetrics() async -> HealthCheckMetrics {
+        let wifi = Minimuxer.network.isWifiSatisfied
+        let wired = Minimuxer.network.isWiredSatisfied
+        let usb = Minimuxer.network.isUsbSatisfied
+        let bridge = Minimuxer.network.isBridgeSatisfied
+        let utun = Minimuxer.network.isUTunAvailable
+        let ipsec = Minimuxer.network.isIKEv2IPSecAvailable
         
-        pollingTask = Task.detached { [weak self] in
-            while !Task.isCancelled {
-                guard let self = self else { break }
-                let wifi = Minimuxer.network.isWifiSatisfied
-                let wired = Minimuxer.network.isWiredSatisfied
-                let usb = Minimuxer.network.isUsbSatisfied
-                let bridge = Minimuxer.network.isBridgeSatisfied
-                let utun = Minimuxer.network.isUTunAvailable
-                let ipsec = Minimuxer.network.isIKEv2IPSecAvailable
-                
-                let tunnelIfaceIp = TunnelConfig.shared.tunnelIfaceIp
-                let subnetMask = TunnelConfig.shared.subnetMask
-                let tunnelPeerIp = TunnelConfig.shared.tunnelPeerIp
-                
-                let pairingType = Minimuxer.shared.getPairingFileType()
-                let isRp = pairingType == .rppairing
-                let protocolStr: String
-                switch pairingType {
-                case .rppairing:
-                    protocolStr = "Remote Pairing"
-                case .lockdown:
-                    protocolStr = "Lockdown"
-                case .unknown:
-                    protocolStr = "Unknown"
-                }
-                
-                let pingSuccess = (tunnelPeerIp != nil) ? Minimuxer.shared.testDeviceConnection(ifaddr: tunnelPeerIp!) : false
-                
-                // Hop to background thread for FFI checks
-                let metrics = await self.checkMetrics(isRp: isRp)
-                let scanned = self.scanLocalInterfaces()
+        let tunnelIfaceIp = TunnelConfig.shared.tunnelIfaceIp
+        let subnetMask = TunnelConfig.shared.subnetMask
+        let tunnelPeerIp = TunnelConfig.shared.tunnelPeerIp
+        
+        let pairingType = Minimuxer.shared.getPairingFileType()
+        let isRp = pairingType == .rppairing
+        let protocolStr: String
+        switch pairingType {
+        case .rppairing:
+            protocolStr = "Remote Pairing"
+        case .lockdown:
+            protocolStr = "Lockdown"
+        case .unknown:
+            protocolStr = "Unknown"
+        }
+        
+        let pingSuccess = (tunnelPeerIp != nil) ? Minimuxer.shared.testDeviceConnection(ifaddr: tunnelPeerIp!) : false
+        
+        let ddi = (try? await Minimuxer.shared.isDDIMounted()) ?? false
+        let pairingVerified = (try? await Minimuxer.shared.fetchUDID() != nil) ?? false
+        let readyResult = await Minimuxer.shared.isReady
+        let scanned = self.scanLocalInterfaces()
+        
+        return HealthCheckMetrics(
+            wifi: wifi, wired: wired, usb: usb, bridge: bridge, utun: utun, ipsec: ipsec,
+            tunnelIfaceIp: tunnelIfaceIp, subnetMask: subnetMask, tunnelPeerIp: tunnelPeerIp,
+            protocolStr: protocolStr, pingSuccess: pingSuccess,
+            ddi: ddi, pairingVerified: pairingVerified, readyResult: readyResult, scanned: scanned
+        )
+    }
+
+    func pollMetrics() async {
+        while !Task.isCancelled {
+            if UIApplication.shared.applicationState == .active {
+                // Hop to background thread to perform all synchronous FFI/network checks
+                let metrics = await self.fetchMetrics()
                 
                 let status = self.computeStatuses(
                     readyResult: metrics.readyResult,
-                    isRp: isRp,
-                    wifi: wifi,
-                    wired: wired,
-                    usb: usb,
-                    bridge: bridge,
-                    utun: utun,
-                    ipsec: ipsec,
-                    pingSuccess: pingSuccess,
+                    isRp: metrics.protocolStr == "Remote Pairing",
+                    wifi: metrics.wifi,
+                    wired: metrics.wired,
+                    usb: metrics.usb,
+                    bridge: metrics.bridge,
+                    utun: metrics.utun,
+                    ipsec: metrics.ipsec,
+                    pingSuccess: metrics.pingSuccess,
                     pairingVerified: metrics.pairingVerified,
                     ddi: metrics.ddi
                 )
                 
                 // Update UI back on Main Actor
-                await self.updateUI(
-                    wifi: wifi, wired: wired, usb: usb, bridge: bridge, utun: utun, ipsec: ipsec,
-                    tunnelIfaceIp: tunnelIfaceIp, subnetMask: subnetMask, tunnelPeerIp: tunnelPeerIp,
-                    protocolStr: protocolStr, pingSuccess: pingSuccess,
+                self.updateUI(
+                    wifi: metrics.wifi, wired: metrics.wired, usb: metrics.usb, bridge: metrics.bridge,
+                    utun: metrics.utun, ipsec: metrics.ipsec, tunnelIfaceIp: metrics.tunnelIfaceIp,
+                    subnetMask: metrics.subnetMask, tunnelPeerIp: metrics.tunnelPeerIp,
+                    protocolStr: metrics.protocolStr, pingSuccess: metrics.pingSuccess,
                     ddi: metrics.ddi, pairingVerified: metrics.pairingVerified,
                     netSat: status.netSat, vpnSat: status.vpnSat, ipsecSat: status.ipsecSat,
                     pingSat: status.pingSat, pairingSat: status.pairingSat, ddiSat: status.ddiSat,
-                    readyResult: metrics.readyResult, scanned: scanned
+                    readyResult: metrics.readyResult, scanned: metrics.scanned
                 )
-                
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
+            
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
-    }
-    
-    nonisolated private func checkMetrics(
-        isRp: Bool
-    ) async -> (
-        ddi: Bool,
-        pairingVerified: Bool,
-        readyResult: Result<Bool, MinimuxerError>
-    ) {
-        let ddi = (try? await Minimuxer.shared.isDDIMounted()) ?? false
-        let pairingVerified = (try? await Minimuxer.shared.fetchUDID() != nil) ?? false
-        let readyResult = await Minimuxer.shared.isReady
-        return (ddi, pairingVerified, readyResult)
     }
     
     nonisolated private func computeStatuses(
@@ -292,12 +299,7 @@ final class HealthCheckViewModel: ObservableObject {
         self.minimuxerReadyResult = readyResult
         self.availableInterfaces = scanned
     }
-    
-    func stopPolling() {
-        pollingTask?.cancel()
-        pollingTask = nil
-        isPolling = false
-    }
+
     
     nonisolated private func scanLocalInterfaces() -> [LocalInterfaceInfo] {
         var interfaces = [LocalInterfaceInfo]()
@@ -486,11 +488,8 @@ struct HealthCheckView: View {
         }
         .navigationTitle("Health Check")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            viewModel.startPolling()
-        }
-        .onDisappear {
-            viewModel.stopPolling()
+        .task {
+            await viewModel.pollMetrics()
         }
     }
 }
