@@ -1668,7 +1668,7 @@ private extension AppManager
                     completionHandler(.failure(OperationError.noVPN))
 
                 case .failure(let error) where error.isMinimuxerProfileInstall:
-                    let error = await minimuxerStatus.operationError ?? OperationError.unknown()
+                    let error = await minimuxerStatus.operationError ?? error
                     completionHandler(.failure(error))
                     
                 case .failure(ALTServerError.unknownRequest), .failure(OperationError.appNotFound(name: app.name)):
