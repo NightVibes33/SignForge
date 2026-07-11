@@ -14,10 +14,10 @@ import GameplayKit
 
 private extension Color
 {
-    static let altGradientLight = Color.init(.displayP3, red: 123.0/255.0, green: 200.0/255.0, blue: 176.0/255.0)
-    static let altGradientDark = Color.init(.displayP3, red: 0.0/255.0, green: 128.0/255.0, blue: 132.0/255.0)
+    static let altGradientLight = Color.init(.displayP3, red: 219.0/255.0, green: 38.0/255.0, blue: 200.0/255.0)
+    static let altGradientDark = Color.init(.displayP3, red: 135.0/255.0, green: 22.0/255.0, blue: 232.0/255.0)
     
-    static let altGradientExtraDark = Color.init(.displayP3, red: 2.0/255.0, green: 82.0/255.0, blue: 103.0/255.0)
+    static let altGradientExtraDark = Color.init(.displayP3, red: 58.0/255.0, green: 8.0/255.0, blue: 135.0/255.0)
 }
 
 struct WidgetTag: WidgetInfo{
