@@ -18,6 +18,20 @@ struct LocalInterfaceInfo: Hashable, Identifiable {
     let type: String
 }
 
+/*
+ Minimuxer.shared.isReady Result Mapping to Core Requirements Statuses:
+ 
+ | Ready Result Case                        | Network   | VPN       | IPSec     | Ping      | Pairing   | DDI       |
+ | ---------------------------------------- | --------- | --------- | --------- | --------- | --------- | --------- |
+ | .success                                 | Satisfied | Satisfied | Satisfied | Satisfied | Satisfied | Satisfied |
+ | .failure(.noConnection)                  | Failed    | Unknown   | Unknown   | Unknown   | Unknown   | Unknown   |
+ | .failure(.noVPN) / .failure(.invalidVPN) | Satisfied | Failed    | Unknown   | Unknown   | Unknown   | Unknown   |
+ | .failure(.pairingFile)                   | Satisfied | Satisfied | Satisfied | Satisfied | Failed    | Unknown   |
+ | .failure(.invalidPairing)                | Satisfied | Satisfied | Satisfied | Satisfied | Failed    | Unknown   |
+ | .failure(.mount)                         | Satisfied | Satisfied | Satisfied | Satisfied | Satisfied | Failed    |
+ | .failure(.muxerNotListening)             | Satisfied | Satisfied | Satisfied | Satisfied | Satisfied | Satisfied |
+ */
+
 @MainActor
 final class HealthCheckViewModel: ObservableObject {
     @Published var isWifiSatisfied = false
@@ -37,6 +51,13 @@ final class HealthCheckViewModel: ObservableObject {
     
     @Published var isDDIMounted = false
     @Published var isPairingFileVerified = false
+    
+    @Published var networkSatisfied: Bool? = nil
+    @Published var vpnSatisfied: Bool? = nil
+    @Published var ipsecSatisfied: Bool? = nil
+    @Published var pingSatisfied: Bool? = nil
+    @Published var pairingSatisfied: Bool? = nil
+    @Published var ddiSatisfied: Bool? = nil
     
     @Published var minimuxerReadyResult: Result<Bool, MinimuxerError>? = nil
     @Published var availableInterfaces: [LocalInterfaceInfo] = []
@@ -62,16 +83,113 @@ final class HealthCheckViewModel: ObservableObject {
                 let ovFakeIP = TunnelConfig.shared.overrideFakeIP
                 let ovEffective = TunnelConfig.shared.overrideEffective
                 
-                let isRp = Minimuxer.shared.isrppairing
-                let protocolStr = isRp ? "Remote Pairing (iOS 17+)" : "Lockdown (pre-iOS 17)"
+                let pairingType = Minimuxer.shared.getPairingFileType()
+                let isRp = pairingType == .rppairing
+                let protocolStr: String
+                switch pairingType {
+                case .rppairing:
+                    protocolStr = "Remote Pairing"
+                case .lockdown:
+                    protocolStr = "Lockdown"
+                case .unknown:
+                    protocolStr = "Unknown"
+                }
                 
-                let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: devIP)
+                let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: ovFakeIP)
                 
                 let ddi = (try? await Minimuxer.shared.isDDIMounted()) ?? false
                 let pairingVerified = (try? await Minimuxer.shared.fetchUDID() != nil) ?? false
                 let readyResult = await Minimuxer.shared.isReady
                 
                 let scanned = scanLocalInterfaces()
+                
+                // Map readyResult to satisfied statuses
+                var netSat: Bool? = nil
+                var vpnSat: Bool? = nil
+                var ipsecSat: Bool? = nil
+                var pingSat: Bool? = nil
+                var pairingSat: Bool? = nil
+                var ddiSat: Bool? = nil
+                
+                switch readyResult {
+                case .success:
+                    netSat = true
+                    vpnSat = true
+                    ipsecSat = isRp ? nil : true
+                    pingSat = true
+                    pairingSat = true
+                    ddiSat = true
+                    
+                case .failure(let error):
+                    switch error {
+                    case .noConnection:
+                        netSat = false
+                        vpnSat = nil
+                        ipsecSat = nil
+                        pingSat = nil
+                        pairingSat = nil
+                        ddiSat = nil
+                        
+                    case .noVPN:
+                        netSat = true
+                        vpnSat = false
+                        ipsecSat = nil
+                        pingSat = nil
+                        pairingSat = nil
+                        ddiSat = nil
+                        
+                    case .invalidVPN(let reason):
+                        netSat = true
+                        vpnSat = true
+                        if reason.contains("ipsec") || reason.contains("IKEv2") {
+                            ipsecSat = false
+                            pingSat = nil
+                            pairingSat = nil
+                            ddiSat = nil
+                        } else {
+                            ipsecSat = isRp ? nil : true
+                            pingSat = false
+                            pairingSat = nil
+                            ddiSat = nil
+                        }
+                        
+                    case .pairingFile, .invalidPairing:
+                        netSat = true
+                        vpnSat = true
+                        ipsecSat = isRp ? nil : true
+                        pingSat = true
+                        pairingSat = false
+                        ddiSat = nil
+                        
+                    case .mount:
+                        netSat = true
+                        vpnSat = true
+                        ipsecSat = isRp ? nil : true
+                        pingSat = true
+                        pairingSat = true
+                        ddiSat = false
+                        
+                    case .muxerNotListening:
+                        netSat = true
+                        vpnSat = true
+                        ipsecSat = isRp ? nil : true
+                        pingSat = true
+                        pairingSat = true
+                        ddiSat = true
+                        
+                    default:
+                        netSat = wifi || wired || bridge
+                        vpnSat = utun
+                        ipsecSat = isRp ? nil : ipsec
+                        pingSat = pingSuccess
+                        pairingSat = pairingVerified
+                        ddiSat = ddi
+                    }
+                }
+                
+                if pairingSat == nil {
+                    pairingSat = Minimuxer.shared.isPairingFileLoaded ? nil : false
+                }
                 
                 await MainActor.run {
                     self.isWifiSatisfied = wifi
@@ -91,6 +209,13 @@ final class HealthCheckViewModel: ObservableObject {
                     
                     self.isDDIMounted = ddi
                     self.isPairingFileVerified = pairingVerified
+                    
+                    self.networkSatisfied = netSat
+                    self.vpnSatisfied = vpnSat
+                    self.ipsecSatisfied = ipsecSat
+                    self.pingSatisfied = pingSat
+                    self.pairingSatisfied = pairingSat
+                    self.ddiSatisfied = ddiSat
                     
                     self.minimuxerReadyResult = readyResult
                     self.availableInterfaces = scanned
@@ -142,6 +267,8 @@ final class HealthCheckViewModel: ObservableObject {
                             type = "VPN (IPSec)"
                         } else if name.hasPrefix("en") {
                             type = "Wi-Fi / Ethernet"
+                        } else if name.hasPrefix("pdp") {
+                            type = "Cellular"
                         } else if name.hasPrefix("lo") {
                             type = "Loopback"
                         } else if name.hasPrefix("bridge") || name.hasPrefix("ap") {
@@ -215,39 +342,41 @@ struct HealthCheckView: View {
                 DependencyRow(
                     title: "Network Connectivity",
                     subtitle: viewModel.isWifiSatisfied ? "Wi-Fi Active" : (viewModel.isWiredSatisfied ? "Ethernet Active" : (viewModel.isBridgeSatisfied ? "Bridge Active" : "No Connection")),
-                    isSatisfied: viewModel.isWifiSatisfied || viewModel.isWiredSatisfied || viewModel.isBridgeSatisfied
+                    isSatisfied: viewModel.networkSatisfied
                 )
                 
                 DependencyRow(
                     title: "VPN Tunnel (utun)",
                     subtitle: viewModel.isUTunAvailable ? "Connected" : "Disconnected",
-                    isSatisfied: viewModel.isUTunAvailable
+                    isSatisfied: viewModel.vpnSatisfied
                 )
                 
                 if !Minimuxer.shared.isrppairing {
-                    DependencyRow(
-                        title: "IPSec/IKEv2 Tunnel",
-                        subtitle: viewModel.isIKEv2IPSecAvailable ? "Connected" : "Disconnected (Required for 26.4+)",
-                        isSatisfied: viewModel.isIKEv2IPSecAvailable
-                    )
+                    if #available(iOS 26.4, *) {
+                        DependencyRow(
+                            title: "IPSec/IKEv2 Tunnel",
+                            subtitle: viewModel.isIKEv2IPSecAvailable ? "Connected" : "Disconnected",
+                            isSatisfied: viewModel.ipsecSatisfied
+                        )
+                    }
                 }
                 
                 DependencyRow(
                     title: "Device Reachability (Ping)",
                     subtitle: viewModel.isPingSuccessful ? "Reachable" : "Unreachable",
-                    isSatisfied: viewModel.isPingSuccessful
+                    isSatisfied: viewModel.pingSatisfied
                 )
                 
                 DependencyRow(
                     title: "Pairing file",
-                    subtitle: viewModel.isPairingFileVerified ? "Verified" : "Unverified / Missing",
-                    isSatisfied: viewModel.isPairingFileVerified
+                    subtitle: viewModel.isPairingFileVerified ? "Verified" : (Minimuxer.shared.isPairingFileLoaded ? "Loaded (Connection down)" : "Unverified / Missing"),
+                    isSatisfied: viewModel.pairingSatisfied
                 )
                 
                 DependencyRow(
                     title: "Developer Disk Image (DDI)",
                     subtitle: viewModel.isDDIMounted ? "Mounted" : "Not Mounted",
-                    isSatisfied: viewModel.isDDIMounted
+                    isSatisfied: viewModel.ddiSatisfied
                 )
             }
             
@@ -309,7 +438,7 @@ struct HealthCheckView: View {
 struct DependencyRow: View {
     let title: String
     let subtitle: String
-    let isSatisfied: Bool
+    let isSatisfied: Bool?
     
     var body: some View {
         HStack {
@@ -321,9 +450,15 @@ struct DependencyRow: View {
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Image(systemName: isSatisfied ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundColor(isSatisfied ? .green : .red)
-                .font(.title3)
+            if let satisfied = isSatisfied {
+                Image(systemName: satisfied ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundColor(satisfied ? .green : .red)
+                    .font(.title3)
+            } else {
+                Image(systemName: "questionmark.circle.fill")
+                    .foregroundColor(.gray)
+                    .font(.title3)
+            }
         }
     }
 }
