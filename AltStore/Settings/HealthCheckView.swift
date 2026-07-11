@@ -97,133 +97,196 @@ final class HealthCheckViewModel: ObservableObject {
                 
                 let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: ovFakeIP)
                 
-                let ddi = (try? await Minimuxer.shared.isDDIMounted()) ?? false
-                let pairingVerified = (try? await Minimuxer.shared.fetchUDID() != nil) ?? false
-                let readyResult = await Minimuxer.shared.isReady
-                
+                // Hop to background thread for FFI checks
+                let metrics = await checkMetrics(ovFakeIP: ovFakeIP, isRp: isRp)
                 let scanned = scanLocalInterfaces()
                 
-                // Map readyResult to satisfied statuses
-                var netSat: Bool? = nil
-                var vpnSat: Bool? = nil
-                var ipsecSat: Bool? = nil
-                var pingSat: Bool? = nil
-                var pairingSat: Bool? = nil
-                var ddiSat: Bool? = nil
+                let status = computeStatuses(
+                    readyResult: metrics.readyResult,
+                    isRp: isRp,
+                    wifi: wifi,
+                    wired: wired,
+                    bridge: bridge,
+                    utun: utun,
+                    ipsec: ipsec,
+                    pingSuccess: pingSuccess,
+                    pairingVerified: metrics.pairingVerified,
+                    ddi: metrics.ddi
+                )
                 
-                switch readyResult {
-                case .success:
-                    netSat = true
-                    vpnSat = true
-                    ipsecSat = isRp ? nil : true
-                    pingSat = true
-                    pairingSat = true
-                    ddiSat = true
-                    
-                case .failure(let error):
-                    switch error {
-                    case .noConnection:
-                        netSat = false
-                        vpnSat = nil
-                        ipsecSat = nil
-                        pingSat = nil
-                        pairingSat = nil
-                        ddiSat = nil
-                        
-                    case .noVPN:
-                        netSat = true
-                        vpnSat = false
-                        ipsecSat = nil
-                        pingSat = nil
-                        pairingSat = nil
-                        ddiSat = nil
-                        
-                    case .invalidVPN(let reason):
-                        netSat = true
-                        vpnSat = true
-                        if reason.contains("ipsec") || reason.contains("IKEv2") {
-                            ipsecSat = false
-                            pingSat = nil
-                            pairingSat = nil
-                            ddiSat = nil
-                        } else {
-                            ipsecSat = isRp ? nil : true
-                            pingSat = false
-                            pairingSat = nil
-                            ddiSat = nil
-                        }
-                        
-                    case .pairingFile, .invalidPairing:
-                        netSat = true
-                        vpnSat = true
-                        ipsecSat = isRp ? nil : true
-                        pingSat = true
-                        pairingSat = false
-                        ddiSat = nil
-                        
-                    case .mount:
-                        netSat = true
-                        vpnSat = true
-                        ipsecSat = isRp ? nil : true
-                        pingSat = true
-                        pairingSat = true
-                        ddiSat = false
-                        
-                    case .muxerNotListening:
-                        netSat = true
-                        vpnSat = true
-                        ipsecSat = isRp ? nil : true
-                        pingSat = true
-                        pairingSat = true
-                        ddiSat = true
-                        
-                    default:
-                        netSat = wifi || wired || bridge
-                        vpnSat = utun
-                        ipsecSat = isRp ? nil : ipsec
-                        pingSat = pingSuccess
-                        pairingSat = pairingVerified
-                        ddiSat = ddi
-                    }
-                }
+                // Update UI back on Main Actor
+                updateUI(
+                    wifi: wifi, wired: wired, bridge: bridge, utun: utun, ipsec: ipsec,
+                    devIP: devIP, subMask: subMask, fkIP: fkIP, ovFakeIP: ovFakeIP, ovEffective: ovEffective,
+                    protocolStr: protocolStr, pingSuccess: pingSuccess,
+                    ddi: metrics.ddi, pairingVerified: metrics.pairingVerified,
+                    netSat: status.netSat, vpnSat: status.vpnSat, ipsecSat: status.ipsecSat,
+                    pingSat: status.pingSat, pairingSat: status.pairingSat, ddiSat: status.ddiSat,
+                    readyResult: metrics.readyResult, scanned: scanned
+                )
                 
-                if pairingSat == nil {
-                    pairingSat = Minimuxer.shared.isPairingFileLoaded ? nil : false
-                }
-                
-                await MainActor.run {
-                    self.isWifiSatisfied = wifi
-                    self.isWiredSatisfied = wired
-                    self.isBridgeSatisfied = bridge
-                    self.isUTunAvailable = utun
-                    self.isIKEv2IPSecAvailable = ipsec
-                    
-                    self.deviceIP = devIP
-                    self.subnetMask = subMask
-                    self.fakeIP = fkIP
-                    self.overrideFakeIP = ovFakeIP
-                    self.overrideEffective = ovEffective
-                    
-                    self.activeProtocol = protocolStr
-                    self.isPingSuccessful = pingSuccess
-                    
-                    self.isDDIMounted = ddi
-                    self.isPairingFileVerified = pairingVerified
-                    
-                    self.networkSatisfied = netSat
-                    self.vpnSatisfied = vpnSat
-                    self.ipsecSatisfied = ipsecSat
-                    self.pingSatisfied = pingSat
-                    self.pairingSatisfied = pairingSat
-                    self.ddiSatisfied = ddiSat
-                    
-                    self.minimuxerReadyResult = readyResult
-                    self.availableInterfaces = scanned
-                }
-                
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
+    }
+    
+    nonisolated private func checkMetrics(
+        ovFakeIP: String?,
+        isRp: Bool
+    ) async -> (
+        ddi: Bool,
+        pairingVerified: Bool,
+        readyResult: Result<Bool, MinimuxerError>
+    ) {
+        let ddi = (try? await Minimuxer.shared.isDDIMounted()) ?? false
+        let pairingVerified = (try? await Minimuxer.shared.fetchUDID() != nil) ?? false
+        let readyResult = await Minimuxer.shared.isReady
+        return (ddi, pairingVerified, readyResult)
+    }
+    
+    nonisolated private func computeStatuses(
+        readyResult: Result<Bool, MinimuxerError>,
+        isRp: Bool,
+        wifi: Bool,
+        wired: Bool,
+        bridge: Bool,
+        utun: Bool,
+        ipsec: Bool,
+        pingSuccess: Bool,
+        pairingVerified: Bool,
+        ddi: Bool
+    ) -> (
+        netSat: Bool?,
+        vpnSat: Bool?,
+        ipsecSat: Bool?,
+        pingSat: Bool?,
+        pairingSat: Bool?,
+        ddiSat: Bool?
+    ) {
+        var netSat: Bool? = nil
+        var vpnSat: Bool? = nil
+        var ipsecSat: Bool? = nil
+        var pingSat: Bool? = nil
+        var pairingSat: Bool? = nil
+        var ddiSat: Bool? = nil
+        
+        switch readyResult {
+        case .success:
+            netSat = true
+            vpnSat = true
+            ipsecSat = isRp ? nil : true
+            pingSat = true
+            pairingSat = true
+            ddiSat = true
+            
+        case .failure(let error):
+            switch error {
+            case .noConnection:
+                netSat = false
+                vpnSat = nil
+                ipsecSat = nil
+                pingSat = nil
+                pairingSat = nil
+                ddiSat = nil
+                
+            case .noVPN:
+                netSat = true
+                vpnSat = false
+                ipsecSat = nil
+                pingSat = nil
+                pairingSat = nil
+                ddiSat = nil
+                
+            case .invalidVPN(let reason):
+                netSat = true
+                vpnSat = true
+                if reason.contains("ipsec") || reason.contains("IKEv2") {
+                    ipsecSat = false
+                    pingSat = nil
+                    pairingSat = nil
+                    ddiSat = nil
+                } else {
+                    ipsecSat = isRp ? nil : true
+                    pingSat = false
+                    pairingSat = nil
+                    ddiSat = nil
+                }
+                
+            case .pairingFile, .invalidPairing:
+                netSat = true
+                vpnSat = true
+                ipsecSat = isRp ? nil : true
+                pingSat = true
+                pairingSat = false
+                ddiSat = nil
+                
+            case .mount:
+                netSat = true
+                vpnSat = true
+                ipsecSat = isRp ? nil : true
+                pingSat = true
+                pairingSat = true
+                ddiSat = false
+                
+            case .muxerNotListening:
+                netSat = true
+                vpnSat = true
+                ipsecSat = isRp ? nil : true
+                pingSat = true
+                pairingSat = true
+                ddiSat = true
+                
+            default:
+                netSat = wifi || wired || bridge
+                vpnSat = utun
+                ipsecSat = isRp ? nil : ipsec
+                pingSat = pingSuccess
+                pairingSat = pairingVerified
+                ddiSat = ddi
+            }
+        }
+        
+        if pairingSat == nil {
+            pairingSat = Minimuxer.shared.isPairingFileLoaded ? nil : false
+        }
+        
+        return (netSat, vpnSat, ipsecSat, pingSat, pairingSat, ddiSat)
+    }
+    
+    private func updateUI(
+        wifi: Bool, wired: Bool, bridge: Bool, utun: Bool, ipsec: Bool,
+        devIP: String?, subMask: String?, fkIP: String?, ovFakeIP: String?, ovEffective: Bool,
+        protocolStr: String, pingSuccess: Bool, ddi: Bool, pairingVerified: Bool,
+        netSat: Bool?, vpnSat: Bool?, ipsecSat: Bool?, pingSat: Bool?, pairingSat: Bool?, ddiSat: Bool?,
+        readyResult: Result<Bool, MinimuxerError>, scanned: [LocalInterfaceInfo]
+    ) {
+        self.isWifiSatisfied = wifi
+        self.isWiredSatisfied = wired
+        self.isBridgeSatisfied = bridge
+        self.isUTunAvailable = utun
+        self.isIKEv2IPSecAvailable = ipsec
+        
+        self.deviceIP = devIP
+        self.subnetMask = subMask
+        self.fakeIP = fkIP
+        self.overrideFakeIP = ovFakeIP ?? "N/A"
+        self.overrideEffective = ovEffective
+        
+        self.activeProtocol = protocolStr
+        self.isPingSuccessful = pingSuccess
+        
+        self.isDDIMounted = ddi
+        self.isPairingFileVerified = pairingVerified
+        
+        self.networkSatisfied = netSat
+        self.vpnSatisfied = vpnSat
+        self.ipsecSatisfied = ipsecSat
+        self.pingSatisfied = pingSat
+        self.pairingSatisfied = pairingSat
+        self.ddiSatisfied = ddiSat
+        
+        self.minimuxerReadyResult = readyResult
+        self.availableInterfaces = scanned
     }
     
     func stopPolling() {
@@ -232,7 +295,7 @@ final class HealthCheckViewModel: ObservableObject {
         isPolling = false
     }
     
-    private func scanLocalInterfaces() -> [LocalInterfaceInfo] {
+    nonisolated private func scanLocalInterfaces() -> [LocalInterfaceInfo] {
         var interfaces = [LocalInterfaceInfo]()
         var head: UnsafeMutablePointer<ifaddrs>? = nil
         guard getifaddrs(&head) == 0, let first = head else { return [] }
@@ -471,7 +534,7 @@ struct ConfigRow: View {
         HStack {
             Text(label)
             Spacer()
-            Text(value ?? "None")
+            Text(value ?? "N/A")
                 .foregroundColor(.secondary)
         }
     }
