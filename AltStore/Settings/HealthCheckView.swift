@@ -64,12 +64,17 @@ final class HealthCheckViewModel: ObservableObject {
     
     private var pollingTask: Task<Void, Never>? = nil
     
+    deinit {
+        pollingTask?.cancel()
+    }
+    
     func startPolling() {
         guard !isPolling else { return }
         isPolling = true
         
-        pollingTask = Task.detached {
+        pollingTask = Task.detached { [weak self] in
             while !Task.isCancelled {
+                guard let self = self else { break }
                 let wifi = Minimuxer.network.isWifiSatisfied
                 let wired = Minimuxer.network.isWiredSatisfied
                 let usb = Minimuxer.network.isUsbSatisfied
