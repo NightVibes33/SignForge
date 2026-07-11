@@ -62,15 +62,15 @@ struct VPNConfigurationView: View {
             List {
                 Section(header: Text("Discovered from network")) {
                     Group {
-                        networkConfigRow(label: "Tunnel Iface IP", text: $config.tunnelIfaceIp, editable: false)
-                        networkConfigRow(label: "Tunnel Peer  IP", text: $config.tunnelPeerIp, editable: false)
+                        networkConfigRow(label: "Tunnel IP", text: $config.tunnelIfaceIp, editable: false)
+                        networkConfigRow(label: "Device IP", text: $config.tunnelPeerIp, editable: false)
                         networkConfigRow(label: "Subnet Mask", text: $config.subnetMask, editable: false)
                     }
                 }
                 
                 Section {
                     networkConfigRow(
-                        label: "Tunnel Peer IP",
+                        label: "Device IP",
                         text: Binding<String?>(get: { config.overridePeerIp }, set: { config.overridePeerIp = $0 ?? "" }),
                         editable: true
                     )
@@ -85,7 +85,7 @@ struct VPNConfigurationView: View {
                 } footer: {
                     HStack(alignment: .top, spacing: 0) {
                         Text("Note: ")
-                        Text("'Tunnel Peer IP' is mandatory and should match exactly as in the target VPN's config")
+                        Text("'Device IP' is mandatory and should match exactly as in the target VPN's config")
                     }
                 }
             }

@@ -70,7 +70,7 @@ final class HealthCheckViewModel: ObservableObject {
         guard !isPolling else { return }
         isPolling = true
         
-        pollingTask = Task {
+        pollingTask = Task.detached {
             while !Task.isCancelled {
                 let wifi = Minimuxer.network.isWifiSatisfied
                 let wired = Minimuxer.network.isWiredSatisfied
@@ -79,11 +79,11 @@ final class HealthCheckViewModel: ObservableObject {
                 let utun = Minimuxer.network.isUTunAvailable
                 let ipsec = Minimuxer.network.isIKEv2IPSecAvailable
                 
-                let devIP = TunnelConfig.shared.tunnelIfaceIp
-                let subMask = TunnelConfig.shared.subnetMask
-                let fkIP = TunnelConfig.shared.tunnelPeerIp
-                let ovFakeIP = TunnelConfig.shared.overridePeerIp
-                let ovEffective = TunnelConfig.shared.overrideEffective
+                let tunnelIfaceIp = TunnelConfig.shared.tunnelIfaceIp
+                let subnetMask = TunnelConfig.shared.subnetMask
+                let tunnelPeerIp = TunnelConfig.shared.tunnelPeerIp
+                let overridePeerIp = TunnelConfig.shared.overridePeerIp
+                let overrideEffective = TunnelConfig.shared.overrideEffective
                 
                 let pairingType = Minimuxer.shared.getPairingFileType()
                 let isRp = pairingType == .rppairing
@@ -97,13 +97,13 @@ final class HealthCheckViewModel: ObservableObject {
                     protocolStr = "Unknown"
                 }
                 
-                let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: ovFakeIP)
+                let pingSuccess = Minimuxer.shared.testDeviceConnection(ifaddr: overridePeerIp)
                 
                 // Hop to background thread for FFI checks
-                let metrics = await checkMetrics(ovPeerIp: ovFakeIP, isRp: isRp)
-                let scanned = scanLocalInterfaces()
+                let metrics = await self.checkMetrics(overridePeerIp: overridePeerIp, isRp: isRp)
+                let scanned = self.scanLocalInterfaces()
                 
-                let status = computeStatuses(
+                let status = self.computeStatuses(
                     readyResult: metrics.readyResult,
                     isRp: isRp,
                     wifi: wifi,
@@ -118,9 +118,9 @@ final class HealthCheckViewModel: ObservableObject {
                 )
                 
                 // Update UI back on Main Actor
-                updateUI(
+                await self.updateUI(
                     wifi: wifi, wired: wired, usb: usb, bridge: bridge, utun: utun, ipsec: ipsec,
-                    devIP: devIP, subMask: subMask, fkIP: fkIP, ovFakeIP: ovFakeIP, ovEffective: ovEffective,
+                    tunnelIfaceIp: tunnelIfaceIp, subnetMask: subnetMask, tunnelPeerIp: tunnelPeerIp, overridePeerIp: overridePeerIp, overrideEffective: overrideEffective,
                     protocolStr: protocolStr, pingSuccess: pingSuccess,
                     ddi: metrics.ddi, pairingVerified: metrics.pairingVerified,
                     netSat: status.netSat, vpnSat: status.vpnSat, ipsecSat: status.ipsecSat,
@@ -134,7 +134,7 @@ final class HealthCheckViewModel: ObservableObject {
     }
     
     nonisolated private func checkMetrics(
-        ovPeerIp: String?,
+        overridePeerIp: String?,
         isRp: Bool
     ) async -> (
         ddi: Bool,
@@ -257,9 +257,10 @@ final class HealthCheckViewModel: ObservableObject {
         return (netSat, vpnSat, ipsecSat, pingSat, pairingSat, ddiSat)
     }
     
+    @MainActor
     private func updateUI(
         wifi: Bool, wired: Bool, usb: Bool, bridge: Bool, utun: Bool, ipsec: Bool,
-        devIP: String?, subMask: String?, fkIP: String?, ovFakeIP: String?, ovEffective: Bool,
+        tunnelIfaceIp: String?, subnetMask: String?, tunnelPeerIp: String?, overridePeerIp: String?, overrideEffective: Bool,
         protocolStr: String, pingSuccess: Bool, ddi: Bool, pairingVerified: Bool,
         netSat: Bool?, vpnSat: Bool?, ipsecSat: Bool?, pingSat: Bool?, pairingSat: Bool?, ddiSat: Bool?,
         readyResult: Result<Bool, MinimuxerError>, scanned: [LocalInterfaceInfo]
@@ -271,11 +272,11 @@ final class HealthCheckViewModel: ObservableObject {
         self.isUTunAvailable = utun
         self.isIKEv2IPSecAvailable = ipsec
         
-        self.tunnelIfaceIp = devIP
-        self.subnetMask = subMask
-        self.tunnelPeerIp = fkIP
-        self.overridePeerIp = ovFakeIP ?? "N/A"
-        self.overrideEffective = ovEffective
+        self.tunnelIfaceIp = tunnelIfaceIp
+        self.subnetMask = subnetMask
+        self.tunnelPeerIp = tunnelPeerIp
+        self.overridePeerIp = overridePeerIp ?? "N/A"
+        self.overrideEffective = overrideEffective
         
         self.activeProtocol = protocolStr
         self.isPingSuccessful = pingSuccess
