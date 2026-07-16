@@ -233,6 +233,8 @@ final class SettingsViewController: UITableViewController
         
         // set the version label to show in settings screen
         self.versionLabel.text = getVersionLabel()
+        self.versionLabel.isUserInteractionEnabled = true
+        self.versionLabel.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(copyVersionLabelTapped)))
         
         self.versionLabel.numberOfLines = 0
         self.versionLabel.lineBreakMode = .byWordWrapping
@@ -466,6 +468,19 @@ private extension SettingsViewController
         }
         
         return versionLabel
+    }
+    
+    @objc private func copyVersionLabelTapped() {
+        let text = self.versionLabel.text ?? ""
+        UIPasteboard.general.string = text.hasPrefix("Version ") ? String(text.dropFirst("Version ".count)) : text
+        let original = self.versionLabel.text
+        let attributed = NSMutableAttributedString(string: "Copied! ")
+        attributed.append(NSAttributedString(string: "✓", attributes: [.foregroundColor: UIColor.systemGreen]))
+        self.versionLabel.attributedText = attributed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.versionLabel.attributedText = nil
+            self?.versionLabel.text = original
+        }
     }
     
     
