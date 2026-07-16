@@ -248,7 +248,7 @@ final class HealthCheckViewModel: ObservableObject {
                 ddiSat = true
                 
             default:
-                netSat = wifi || wired || usb || bridge
+                netSat = wifi // || wired || usb || bridge
                 vpnSat = utun
                 ipsecSat = isRp ? nil : ipsec
                 pingSat = pingSuccess
@@ -410,7 +410,7 @@ struct HealthCheckView: View {
             Section(header: Text("Core Requirements")) {
                 DependencyRow(
                     title: "Network Connectivity",
-                    subtitle: viewModel.isWifiSatisfied ? "Wi-Fi Active" : (viewModel.isUsbSatisfied ? "USB Connection Active" : (viewModel.isWiredSatisfied ? "Ethernet Active" : (viewModel.isBridgeSatisfied ? "Bridge Active" : "No Connection"))),
+                    subtitle: viewModel.isWifiSatisfied ? "Wi-Fi Active" : /* (viewModel.isUsbSatisfied ? "USB Connection Active" : (viewModel.isWiredSatisfied ? "Ethernet Active" : (viewModel.isBridgeSatisfied ? "Bridge Active" : "No Connection"))) */ "No Connection",
                     isSatisfied: viewModel.networkSatisfied
                 )
                 
