@@ -195,12 +195,16 @@ extension AppScreenshots
                     let screenshot = AppScreenshot(imageURL: imageURL, size: nil, deviceType: self.deviceType, context: context)
                     self.screenshots.append(screenshot)
                 }
-                catch DecodingError.typeMismatch
+                catch
                 {
                     // Fall back to parsing full AppScreenshot (preferred).
-                    
-                    let screenshot = try container.decode(AppScreenshot.self)
-                    self.screenshots.append(screenshot)
+                    do {
+                        let screenshot = try container.decode(AppScreenshot.self)
+                        self.screenshots.append(screenshot)
+                    } catch {
+                        // Skip the corrupted screenshot and log a warning instead of failing the whole import
+                        debugLog("[AppScreenshots]: Warning: Failed to decode screenshot. Skipping. Error: \(error)")
+                    }
                 }
             }
         }

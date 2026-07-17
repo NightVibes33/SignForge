@@ -791,6 +791,14 @@ private extension AddSourceViewController
         }
         
         Task {
+            for result in self.viewModel.sourcePreviewResults {
+                if case .failure(let error) = result.result {
+                    let errorTitle = NSLocalizedString("Unable to Add Source", comment: "")
+                    await self.presentAlert(title: errorTitle, message: error.localizedDescription)
+                    return
+                }
+            }
+            
             var isCancelled = false
             // OK: COMMIT the staged changes now
             // Convert the stagedForAdd dictionary into an array of StagedSource

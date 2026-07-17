@@ -322,7 +322,17 @@ public class StoreApp: BaseEntity, Decodable
             self.bundleIdentifier = try container.decode(String.self, forKey: .bundleIdentifier)
             self.developerName = try container.decode(String.self, forKey: .developerName)
             self.localizedDescription = try container.decode(String.self, forKey: .localizedDescription)
-            self.iconURL = try container.decode(URL.self, forKey: .iconURL)
+            do {
+                self.iconURL = try container.decode(URL.self, forKey: .iconURL)
+            } catch {
+                if let rawURLString = try? container.decode(String.self, forKey: .iconURL),
+                   let placeholderURL = URL(string: "about:blank") {
+                    self.iconURL = placeholderURL
+                    debugLog("[StoreApp]: Warning: Failed to decode iconURL '\(rawURLString)' for app \(self.bundleIdentifier). Using placeholder.")
+                } else {
+                    throw error
+                }
+            }
             
             self.subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
             

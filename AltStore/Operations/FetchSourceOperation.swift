@@ -194,14 +194,28 @@ final class FetchSourceOperation: ResultOperation<Source> {
         try self.verifySourceNotBlocked(source, response: response)
         
         var bundleIDs = Set<String>()
+        var duplicateApps = [StoreApp]()
+        
         for app in source.apps {
-            guard !bundleIDs.contains(app.bundleIdentifier) else { throw SourceError.duplicateBundleID(app.bundleIdentifier, source: source) }
+            if bundleIDs.contains(app.bundleIdentifier) {
+                duplicateApps.append(app)
+                continue
+            }
             bundleIDs.insert(app.bundleIdentifier)
-
+            
             var versions = Set<String>()
+            var duplicateVersions = [AppVersion]()
             for version in app.versions {
-                guard !versions.contains(version.versionID) else { throw SourceError.duplicateVersion(version.localizedVersion, for: app, source: source) }
+                if versions.contains(version.versionID) {
+                    duplicateVersions.append(version)
+                    continue
+                }
                 versions.insert(version.versionID)
+            }
+            
+            for version in duplicateVersions {
+                debugLog("[FetchSourceOperation]: Warning: Skipping duplicate version '\(version.version)' for app '\(app.name)' (\(app.bundleIdentifier)).")
+                version.managedObjectContext?.delete(version)
             }
             
             for permission in app.permissions where permission.type == .privacy {
@@ -219,6 +233,11 @@ final class FetchSourceOperation: ResultOperation<Source> {
             #else
             guard app.marketplaceID == nil else { throw SourceError.marketplaceNotSupported(source: source) }
             #endif
+        }
+        
+        for app in duplicateApps {
+            debugLog("[FetchSourceOperation]: Warning: Skipping duplicate app '\(app.name)' (\(app.bundleIdentifier)) in source '\(source.name)'.")
+            app.managedObjectContext?.delete(app)
         }
         
         let incomingSourceID = source.identifier
