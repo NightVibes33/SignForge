@@ -38,7 +38,7 @@ extension AppDelegate
            let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: altstoreAppGroup) {
             let logFileURL = containerURL.appendingPathComponent("Logs", isDirectory: true).appendingPathComponent("SideBackup.log")
             if let logContents = try? String(contentsOf: logFileURL, encoding: .utf8), !logContents.isEmpty {
-                debugLog("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
+                debugLog("\n[SideBackup Logs]\n\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n\n[SideBackup Logs End]\n\n")
                 // Delete after reading so stale logs don't persist
                 try? FileManager.default.removeItem(at: logFileURL)
             }

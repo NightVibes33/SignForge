@@ -108,8 +108,15 @@ final class ResignAppOperation: ResultOperation<ALTApplication>, OperationLoggin
         }
 
         let bundleIdentifier = context.bundleIdentifier
+        let finalBundleIdentifier: String
+        if let profile = context.useMainProfile ? profiles.values.first : profiles[bundleIdentifier] {
+            finalBundleIdentifier = profile.bundleIdentifier
+        } else {
+            finalBundleIdentifier = bundleIdentifier
+        }
+        
         // Use customized bundle ID if applicable
-        let openURL = InstalledApp.openAppURL(for: AnyApp(from: app, bundleId: context.bundleIdentifier))
+        let openURL = InstalledApp.openAppURL(for: AnyApp(from: app, bundleId: finalBundleIdentifier))
         let fileURL = app.fileURL
 
         let appBundleURL = self.context.temporaryDirectory.appendingPathComponent("App.app")
@@ -126,7 +133,7 @@ final class ResignAppOperation: ResultOperation<ALTApplication>, OperationLoggin
         }
         
         let altstoreURLScheme = ["CFBundleTypeRole": "Editor",
-                                 "CFBundleURLName": bundleIdentifier,
+                                 "CFBundleURLName": finalBundleIdentifier,
                                  "CFBundleURLSchemes": [openURL.scheme!]] as [String : Any]
         allURLSchemes.append(altstoreURLScheme)
         
