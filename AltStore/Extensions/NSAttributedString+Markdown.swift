@@ -294,7 +294,7 @@ private func updateAttributedString(
     spanType: NSAttributedString.MarkdownSpanType,
     styleAttributes: [MarkdownStyleKey: [NSAttributedString.Key: Any]]?
 ) {
-    let scanString = result.string
+    let scanString = result.string as NSString
     var mutationOffset = 0
     
     // Find horizontal rules to ignore
@@ -302,9 +302,9 @@ private func updateAttributedString(
     if let rulerChar = beginMarker.first, (rulerChar == "*" || rulerChar == "_") {
         let rulerString = String(rulerChar)
         var checkIndex = 0
-        while checkIndex < scanString.count {
-            let lineRange = (scanString as NSString).lineRange(for: NSRange(location: checkIndex, length: 0))
-            let lineString = (scanString as NSString).substring(with: lineRange)
+        while checkIndex < scanString.length {
+            let lineRange = scanString.lineRange(for: NSRange(location: checkIndex, length: 0))
+            let lineString = scanString.substring(with: lineRange)
             let compressed = lineString.replacingOccurrences(of: rulerString, with: "")
             let trimmed = compressed.trimmingCharacters(in: .whitespacesAndNewlines)
             let rawCount = lineString.filter { String($0) == rulerString }.count
@@ -317,22 +317,22 @@ private func updateAttributedString(
     }
     
     var scanIndex = 0
-    while scanIndex < scanString.count {
-        let remainingRange = NSRange(location: scanIndex, length: scanString.count - scanIndex)
-        let beginRange = (scanString as NSString).range(of: beginMarker, options: [], range: remainingRange)
+    while scanIndex < scanString.length {
+        let remainingRange = NSRange(location: scanIndex, length: scanString.length - scanIndex)
+        let beginRange = scanString.range(of: beginMarker, options: [], range: remainingRange)
         if beginRange.location == NSNotFound {
             break
         }
         
         // Check escaping
-        let isEscaped = beginRange.location > 0 && (scanString as NSString).character(at: beginRange.location - 1) == 92 // '\\'
+        let isEscaped = beginRange.location > 0 && scanString.character(at: beginRange.location - 1) == 92 // '\\'
         var isLiteralOrList = false
         if beginMarker.count == 1 {
-            let hasPrefixStartOfLine = beginRange.location == 0 || (scanString as NSString).character(at: beginRange.location - 1) == 10 // '\n'
-            let hasPrefixSpace = beginRange.location > 0 && (scanString as NSString).character(at: beginRange.location - 1) == 32 // ' '
-            let hasSuffixSpace = beginRange.location + 1 < scanString.count && (scanString as NSString).character(at: beginRange.location + 1) == 32
-            let hasPrefixTab = beginRange.location > 0 && (scanString as NSString).character(at: beginRange.location - 1) == 9 // '\t'
-            let hasSuffixTab = beginRange.location + 1 < scanString.count && (scanString as NSString).character(at: beginRange.location + 1) == 9
+            let hasPrefixStartOfLine = beginRange.location == 0 || scanString.character(at: beginRange.location - 1) == 10 // '\n'
+            let hasPrefixSpace = beginRange.location > 0 && scanString.character(at: beginRange.location - 1) == 32 // ' '
+            let hasSuffixSpace = beginRange.location + 1 < scanString.length && scanString.character(at: beginRange.location + 1) == 32
+            let hasPrefixTab = beginRange.location > 0 && scanString.character(at: beginRange.location - 1) == 9 // '\t'
+            let hasSuffixTab = beginRange.location + 1 < scanString.length && scanString.character(at: beginRange.location + 1) == 9
             if (hasPrefixStartOfLine || hasPrefixSpace || hasPrefixTab) && (hasSuffixSpace || hasSuffixTab) {
                 isLiteralOrList = true
             }
@@ -364,20 +364,20 @@ private func updateAttributedString(
         var endRange = NSRange(location: NSNotFound, length: 0)
         
         var scanEndIndex = beginIndex
-        while scanEndIndex < scanString.count {
-            var searchRange = NSRange(location: scanEndIndex, length: scanString.count - scanEndIndex)
-            let visualLineRange = (scanString as NSString).range(of: "\n\n", options: [], range: searchRange)
+        while scanEndIndex < scanString.length {
+            var searchRange = NSRange(location: scanEndIndex, length: scanString.length - scanEndIndex)
+            let visualLineRange = scanString.range(of: "\n\n", options: [], range: searchRange)
             if visualLineRange.location != NSNotFound {
                 searchRange = NSRange(location: scanEndIndex, length: visualLineRange.location - scanEndIndex)
             }
             
             var dividerMissing = false
             if let divider = dividerMarker {
-                let divRange = (scanString as NSString).range(of: divider, options: [], range: searchRange)
+                let divRange = scanString.range(of: divider, options: [], range: searchRange)
                 if divRange.location == NSNotFound {
                     dividerMissing = true
                 } else {
-                    let divEscaped = divRange.location > 0 && (scanString as NSString).character(at: divRange.location - 1) == 92
+                    let divEscaped = divRange.location > 0 && scanString.character(at: divRange.location - 1) == 92
                     if divEscaped {
                         dividerMissing = true
                     } else {
@@ -387,11 +387,11 @@ private func updateAttributedString(
                 }
             }
             
-            endRange = (scanString as NSString).range(of: endMarker, options: [], range: searchRange)
+            endRange = scanString.range(of: endMarker, options: [], range: searchRange)
             if endRange.location != NSNotFound {
-                let endEscaped = endRange.location > 0 && (scanString as NSString).character(at: endRange.location - 1) == 92
-                let hasPrefixSpace = endRange.location > 0 && (scanString as NSString).character(at: endRange.location - 1) == 32
-                let hasSuffixSpace = endRange.location + 1 < scanString.count && (scanString as NSString).character(at: endRange.location + 1) == 32
+                let endEscaped = endRange.location > 0 && scanString.character(at: endRange.location - 1) == 92
+                let hasPrefixSpace = endRange.location > 0 && scanString.character(at: endRange.location - 1) == 32
+                let hasSuffixSpace = endRange.location + 1 < scanString.length && scanString.character(at: endRange.location + 1) == 32
                 
                 if !endEscaped && !(hasPrefixSpace && hasSuffixSpace) {
                     if !dividerMissing {
@@ -532,12 +532,12 @@ private func removeEscapedCharacterSet(in result: NSMutableAttributedString, cha
     var scanStart = 0
     var needsScan = true
     while needsScan {
-        let scanString = result.string
-        guard scanStart < scanString.count else { break }
+        let scanString = result.string as NSString
+        guard scanStart < scanString.length else { break }
         
-        let range = (scanString as NSString).rangeOfCharacter(from: characterSet, options: [], range: NSRange(location: scanStart, length: scanString.count - scanStart))
+        let range = scanString.rangeOfCharacter(from: characterSet, options: [], range: NSRange(location: scanStart, length: scanString.length - scanStart))
         if range.location != NSNotFound {
-            let hasEscapeMarker = range.location > 0 && (scanString as NSString).character(at: range.location - 1) == 92 // '\\'
+            let hasEscapeMarker = range.location > 0 && scanString.character(at: range.location - 1) == 92 // '\\'
             if hasEscapeMarker {
                 result.replaceCharacters(in: NSRange(location: range.location - 1, length: 1), with: "")
                 scanStart = range.location
