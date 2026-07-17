@@ -365,7 +365,8 @@ public extension InstalledApp
     // TODO: @mahee96: Do NOT hardcode app's url scheme prefixes as in here
     //       Need to get it dynamically from the Info.plist of other means
     var openAppURL: URL {
-        let openAppURL = URL(string: "sidestore-" + self.bundleIdentifier + "://")!
+        let identifier = self.resignedBundleIdentifier.isEmpty ? self.bundleIdentifier : self.resignedBundleIdentifier
+        let openAppURL = URL(string: "sidestore-" + identifier + "://")!
         return openAppURL
     }
     
