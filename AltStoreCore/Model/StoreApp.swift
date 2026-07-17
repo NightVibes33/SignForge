@@ -169,7 +169,7 @@ public class StoreApp: BaseEntity, Decodable
     
     @NSManaged public private(set) var developerName: String
     @NSManaged public private(set) var localizedDescription: String
-    @NSManaged @objc(size) internal var _size: Int32
+    @NSManaged @objc(size) internal var _size: Int64
     
     @nonobjc public var category: StoreCategory? {
         guard let _category else { return nil }
@@ -571,7 +571,7 @@ internal extension StoreApp
         self.versionDate = latestVersion.date
         self.versionDescription = latestVersion.localizedDescription
         self.downloadURL = latestVersion.downloadURL
-        self._size = Int32(latestVersion.size)
+        self._size = latestVersion.size
     }
     
     func setPermissions(_ permissions: Set<AppPermission>)
@@ -724,7 +724,7 @@ public extension StoreApp
                                                    channel: placeholderChannel,
                                                    date: placeholderDate,
                                                    downloadURL: placeholderDownloadURL,
-                                                   size: Int64(app._size),
+                                                   size: app._size,
                                                    appBundleID: app.bundleIdentifier,
                                                    sourceID: app.sourceIdentifier,
                                                    in: context)
