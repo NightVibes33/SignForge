@@ -108,13 +108,7 @@ class BackupAppOperation: ResultOperation<Void>, OperationLogging {
     }
     
     override func finish(_ result: Result<Void, Error>) {
-        if let altstoreAppGroup = Bundle.main.altstoreAppGroup,
-           let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: altstoreAppGroup) {
-            let logFileURL = containerURL.appendingPathComponent("Logs", isDirectory: true).appendingPathComponent("SideBackup.log")
-            if let logContents = try? String(contentsOf: logFileURL, encoding: .utf8), !logContents.isEmpty {
-                debugLog("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
-            }
-        }
+        AppDelegate.dumpSideBackupLogsIfNeeded()
 
         let result = result.mapError { (error) -> Error in
             let appName = self.appName ?? self.context.bundleIdentifier

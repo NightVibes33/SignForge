@@ -32,6 +32,18 @@ extension AppDelegate
     static let appBackupResultKey = "result"
     static let addSourceDeepLinkURLKey = "sourceURL"
     static let exportCertificateCallbackTemplateKey = "callback"
+    
+    static func dumpSideBackupLogsIfNeeded() {
+        if let altstoreAppGroup = Bundle.main.altstoreAppGroup,
+           let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: altstoreAppGroup) {
+            let logFileURL = containerURL.appendingPathComponent("Logs", isDirectory: true).appendingPathComponent("SideBackup.log")
+            if let logContents = try? String(contentsOf: logFileURL, encoding: .utf8), !logContents.isEmpty {
+                debugLog("\n[SideBackup Logs]\n\(logContents.trimmingCharacters(in: .whitespacesAndNewlines))\n[SideBackup Logs End]\n")
+                // Delete after reading so stale logs don't persist
+                try? FileManager.default.removeItem(at: logFileURL)
+            }
+        }
+    }
 }
 
 @UIApplicationMain

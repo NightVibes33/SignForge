@@ -97,8 +97,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         Task { @MainActor in
             // Response to the caller/parent app is posted here (url is provided by caller in incoming query params)
-            UIApplication.shared.open(responseURL, options: [:]) { (success) in
+            debugLog("[SideBackup]: Attempting to open return URL: \(responseURL.absoluteString), scheme: \(responseURL.scheme ?? "nil")")
+            UIApplication.shared.open(responseURL, options: [:]) { success in
                 debugLog("[SideBackup]: Sent response to app with success: \(success)")
+                if !success {
+                    debugLog("[SideBackup]: WARNING - Failed to open SideStore return URL. Scheme '\(responseURL.scheme ?? "nil")' may not be registered or SideStore is not installed.")
+                }
             }
         }
     }

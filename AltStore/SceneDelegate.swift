@@ -53,6 +53,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate
     func sceneDidBecomeActive(_ scene: UIScene)
     {
         debugLog("SceneDelegate.sceneDidBecomeActive() invoked")
+        defer {
+            // dump sidebackup logs if any
+            AppDelegate.dumpSideBackupLogsIfNeeded()
+        }
         // Flush any .ipa import that arrived before the scene was active (cold launch).
         guard let url = self.pendingImportIPAURL else { return }
         self.pendingImportIPAURL = nil
