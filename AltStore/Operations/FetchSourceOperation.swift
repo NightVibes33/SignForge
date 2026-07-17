@@ -137,29 +137,33 @@ final class FetchSourceOperation: ResultOperation<Source> {
             do {
                 source = try decoder.decode(Source.self, from: data)
             } catch let error as DecodingError {
-                let nsError = error as NSError
-                guard var codingPath = nsError.userInfo[ALTNSCodingPathKey] as? [CodingKey] else { throw error }
-                
-                if case .keyNotFound(let key, _) = error {
-                    // Add missing key to error for better debugging.
-                    codingPath.append(key)
+                let debugDescription: String
+                let codingPath: [CodingKey]
+                switch error {
+                case .typeMismatch(let type, let context):
+                    debugDescription = "Type mismatch for type \(type). \(context.debugDescription)"
+                    codingPath = context.codingPath
+                case .valueNotFound(let type, let context):
+                    debugDescription = "Value of type \(type) not found. \(context.debugDescription)"
+                    codingPath = context.codingPath
+                case .keyNotFound(let key, let context):
+                    debugDescription = "Key '\(key.stringValue)' not found. \(context.debugDescription)"
+                    codingPath = context.codingPath + [key]
+                case .dataCorrupted(let context):
+                    debugDescription = "Data corrupted. \(context.debugDescription)"
+                    codingPath = context.codingPath
+                @unknown default:
+                    debugDescription = error.localizedDescription
+                    codingPath = []
                 }
                 
-                let rawComponents = codingPath.map { $0.intValue?.description ?? $0.stringValue }
-                let pathDescription = rawComponents.joined(separator: " > ")
+                let pathDescription = codingPath.map { $0.intValue?.description ?? $0.stringValue }.joined(separator: " > ")
+                let detailedMessage = "Decoding failed: \(debugDescription) at path: \(pathDescription)"
                 
-                var userInfo = nsError.userInfo
-                
-                if let debugDescription = nsError.localizedDebugDescription {
-                    let detailedDescription = debugDescription + "\n\n" + pathDescription
-                    userInfo[NSDebugDescriptionErrorKey] = detailedDescription
-                } else {
-                    userInfo[NSDebugDescriptionErrorKey] = pathDescription
-                }
-                
-                // TODO: @mahee96: Need to account for invalid/missing json fields error
-                //                 and show meaningful message to user instead of just showing decoder error
-                throw NSError(domain: nsError.domain, code: nsError.code, userInfo: userInfo)
+                throw NSError(domain: "io.sidestore.SideStore.DecodingError", code: 0, userInfo: [
+                    NSLocalizedDescriptionKey: detailedMessage,
+                    NSDebugDescriptionErrorKey: detailedMessage
+                ])
             }
             
             let identifier = source.identifier
