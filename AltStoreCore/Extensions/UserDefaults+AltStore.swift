@@ -90,6 +90,22 @@ public extension UserDefaults
         get { self.bool(forKey: #function) }
         set { self.set(newValue, forKey: #function) }
     }
+    var customizeAppExtensions: Bool {
+        get {
+            if self.object(forKey: "customizeAppExtensions") != nil {
+                return self._customizeAppExtensions
+            }
+            if let activeTeam = DatabaseManager.shared.activeTeam(), activeTeam.type != .free {
+                return false
+            }
+            return true
+        }
+        set { self._customizeAppExtensions = newValue }
+    }
+    @objc(customizeAppExtensions) private var _customizeAppExtensions: Bool {
+        get { self.bool(forKey: "customizeAppExtensions") }
+        set { self.set(newValue, forKey: "customizeAppExtensions") }
+    }
     @objc var isExportResignedAppEnabled: Bool {
         get { self.bool(forKey: #function) }
         set { self.set(newValue, forKey: #function) }

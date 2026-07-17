@@ -84,6 +84,7 @@ extension SettingsViewController
         case exportResignedApp      // row 10 - Export Resigned Apps (moved here from diagnostics)
         case enableEMPForWiregaurd  // row 11 - Enable EMP for wireguard
         case customizeAppId         // row 12 - Enable AppId Customization
+        case customizeAppExtensions // row 13 - Enable AppExtns Customization
     }
     
     private enum SigningSettingsRow: Int, CaseIterable {
@@ -134,6 +135,7 @@ final class SettingsViewController: UITableViewController
     @IBOutlet private var disableAppLimitSwitch: UISwitch!
     @IBOutlet private var betaUpdatesSwitch: UISwitch!
     @IBOutlet private var customizeAppIdSwitch: UISwitch!
+    @IBOutlet private var customizeAppExtensionsSwitch: UISwitch!
     @IBOutlet private var exportResignedAppsSwitch: UISwitch!
     @IBOutlet private var verboseOperationsLoggingSwitch: UISwitch!
     @IBOutlet private var minimuxerConsoleLoggingSwitch: UISwitch!
@@ -507,6 +509,7 @@ private extension SettingsViewController
 
         // AdvancedSettingsRow
         self.customizeAppIdSwitch.isOn = UserDefaults.standard.customizeAppId
+        self.customizeAppExtensionsSwitch.isOn = UserDefaults.standard.customizeAppExtensions
         
         // BetaTestingRow
         self.betaUpdatesSwitch.isOn = UserDefaults.standard.isBetaUpdatesEnabled
@@ -806,6 +809,10 @@ private extension SettingsViewController
     @IBAction func toggleEnableAppIdCustomization(_ sender: UISwitch) {
         // update it in database
         UserDefaults.standard.customizeAppId = sender.isOn
+    }
+    
+    @IBAction func toggleEnableAppExtensionsCustomization(_ sender: UISwitch) {
+        UserDefaults.standard.customizeAppExtensions = sender.isOn
     }
     
     @IBAction func toggleIsBackgroundRefreshEnabled(_ sender: UISwitch)
@@ -1512,7 +1519,7 @@ extension SettingsViewController
                 
                 navigationController?.pushViewController(vc, animated: true)
                 
-            case .refreshAttempts, .exportResignedApp, .enableEMPForWiregaurd, .customizeAppId: break
+            case .refreshAttempts, .exportResignedApp, .enableEMPForWiregaurd, .customizeAppId, .customizeAppExtensions: break
             }
         case .signing:
             let row = SigningSettingsRow.allCases[indexPath.row]

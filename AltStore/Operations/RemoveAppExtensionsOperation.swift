@@ -84,7 +84,8 @@ final class RemoveAppExtensionsOperation: ResultOperation<Void>, OperationLoggin
         let excessExtensions = processExtensionsInfo(from: targetAppBundle, localAppExtensions: localAppExtensions)
 
         Task { @MainActor in
-            guard let presentingViewController: UIViewController = presentingViewController,
+            guard UserDefaults.standard.customizeAppExtensions,
+                  let presentingViewController: UIViewController = presentingViewController,
                   presentingViewController.viewIfLoaded?.window != nil else {
                 // background mode: remove only the excess extensions automatically for re-installs
                 //                  keep all extensions for fresh install (localAppBundle = nil)
