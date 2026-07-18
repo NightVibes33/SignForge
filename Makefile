@@ -177,7 +177,7 @@ COMMON_BUILD_SETTINGS = \
 	AD_HOC_CODE_SIGNING_ALLOWED=YES \
 	CODE_SIGNING_ALLOWED=NO \
 	DEVELOPMENT_TEAM=XYZ0123456 \
-	ORG_IDENTIFIER=com.SideStore
+	ORG_IDENTIFIER=com.NightVibes33
 
 # Append MARKETING_VERSION if it’s not empty (coz otherwise the blank entry becomes override)
 ifneq ($(strip $(MARKETING_VERSION)),)
@@ -250,31 +250,31 @@ clean-build:
 	@xcodebuild clean -project AltStore.xcodeproj -scheme SideStore
 
 fakesign-apps:
-	rm -rf SideStore.xcarchive/Products/Applications/SideStore.app/Frameworks/AltStoreCore.framework/Frameworks/
-	ldid -SAltStore/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SideStore.app/SideStore
-	ldid -SAltWidget/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SideStore.app/PlugIns/AltWidgetExtension.appex/AltWidgetExtension
+	rm -rf SideStore.xcarchive/Products/Applications/SignForge.app/Frameworks/AltStoreCore.framework/Frameworks/
+	ldid -SAltStore/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SignForge.app/SignForge
+	ldid -SAltWidget/Resources/ReleaseEntitlements.plist SideStore.xcarchive/Products/Applications/SignForge.app/PlugIns/AltWidgetExtension.appex/AltWidgetExtension
 
 fakesign-sidebackup:	
 	@echo ''
 	@echo "fake-signing sidebackup even though it will get resigned, only to retain its entitlements (appGroups)"
-	unzip -q -o SideStore.xcarchive/Products/Applications/SideStore.app/SideBackup.ipa -d SideStore.xcarchive/Products/Applications/SideStore.app/
-	ldid -SSideBackup/SideBackup.entitlements SideStore.xcarchive/Products/Applications/SideStore.app/Payload/SideBackup.app/SideBackup
-	pushd "SideStore.xcarchive/Products/Applications/SideStore.app/"  > /dev/null; \
+	unzip -q -o SideStore.xcarchive/Products/Applications/SignForge.app/SideBackup.ipa -d SideStore.xcarchive/Products/Applications/SignForge.app/
+	ldid -SSideBackup/SideBackup.entitlements SideStore.xcarchive/Products/Applications/SignForge.app/Payload/SideBackup.app/SideBackup
+	pushd "SideStore.xcarchive/Products/Applications/SignForge.app/"  > /dev/null; \
 	rm -f     SideBackup.ipa; \
 	zip -r SideBackup.ipa Payload; \
 	popd  > /dev/null
-	@rm -rf SideStore.xcarchive/Products/Applications/SideStore.app/Payload
+	@rm -rf SideStore.xcarchive/Products/Applications/SignForge.app/Payload
 
 fakesign: fakesign-apps fakesign-sidebackup				
 
 
 ipa:
 	@echo ''
-	@echo "fake-signing sidestore"
-	mkdir -p Payload/SideStore.app
-	cp -R SideStore.xcarchive/Products/Applications/SideStore.app/ Payload/SideStore.app/
-	rm -f     SideStore.ipa
-	zip -r SideStore.ipa Payload
+	@echo "fake-signing SignForge"
+	mkdir -p Payload/SignForge.app
+	cp -R SideStore.xcarchive/Products/Applications/SignForge.app/ Payload/SignForge.app/
+	rm -f     SignForge.ipa
+	zip -r SignForge.ipa Payload
 	rm -rf Payload*/
 
 # Global Variables
@@ -384,5 +384,5 @@ clean-sidebackup:
     #@rm -f AltStore/Resources/SideBackup.ipa
 
 clean: clean-sidebackup
-	@rm -rf SideStore.ipa
+	@rm -rf SignForge.ipa
 	@rm -rf build/
