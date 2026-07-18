@@ -18,6 +18,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.nightvibes.signforge
         INFOPLIST_FILE: Sources/SignForgeApp/Info.plist
         SWIFT_VERSION: 5.9
+        CODE_SIGN_ENTITLEMENTS: Sources/SignForgeApp/SignForge.entitlements
     scheme:
       testTargets:
         - SignForgeTests

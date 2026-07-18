@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -88,7 +89,7 @@ struct HeroPanel: View {
                     Text("Apple signing studio")
                         .font(.system(.largeTitle, design: .rounded, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text("Create Apple signing assets from iOS using App Store Connect API keys. No Apple ID password collection, no broken Sign in with Apple requirement.")
+                    Text("Create Apple signing assets from iOS. Sign in with Apple can identify the user in signed builds; App Store Connect API keys perform cert and profile operations.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -195,7 +196,17 @@ struct ConnectSurface: View {
     private let keychain = KeychainVault()
 
     var body: some View {
-        SurfaceCard(title: "Connect App Store Connect", subtitle: "Provisioning requires an App Store Connect API key. Apple ID login alone cannot create certs or profiles.", icon: "key.fill") {
+        SurfaceCard(title: "Connect App Store Connect", subtitle: "Sign in with Apple identifies the user when the app is signed with the Apple Sign In capability. API keys still power cert and profile creation.", icon: "key.fill") {
+            SignInWithAppleButton(.continue) { request in
+                request.requestedScopes = [.email, .fullName]
+            } onCompletion: { result in
+                switch result {
+                case .success: status = "Apple identity linked"
+                case .failure(let error): status = "Sign in with Apple requires a signed build with the Apple Sign In capability: " + error.localizedDescription
+                }
+            }
+            .frame(height: 48)
+            StatusLine(text: "Unsigned IPAs cannot use Sign in with Apple. Sign this app with a profile that includes Apple Sign In to avoid AuthorizationError 1000.")
             CredentialFields(name: $name, issuerID: $issuerID, keyID: $keyID, teamID: $teamID, p8: $p8)
             Button { saveCredential() } label: { Label("Save API key", systemImage: "key.fill") }.buttonStyle(PrimaryButtonStyle())
             Link(destination: URL(string: "https://appstoreconnect.apple.com/access/integrations/api")!) {
