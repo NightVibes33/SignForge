@@ -10,6 +10,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     case profiles = "Profiles"
     case p12 = "P12 builder"
     case signer = "IPA signer"
+    case entitlements = "Entitlements"
     case vault = "Artifact vault"
     case diagnostics = "Diagnostics"
     case security = "Security"
@@ -37,6 +38,7 @@ struct RootView: View {
             case .profiles: ProfilesView()
             case .p12: P12BuilderView()
             case .signer: IPASignerView()
+            case .entitlements: EntitlementsDiffView()
             case .vault: ArtifactVaultView()
             case .diagnostics: DiagnosticsView()
             case .security: SecuritySettingsView()
