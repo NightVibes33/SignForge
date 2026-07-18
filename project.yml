@@ -1,0 +1,30 @@
+name: SignForge
+options:
+  bundleIdPrefix: com.nightvibes
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+targets:
+  SignForge:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nightvibes.signforge
+        INFOPLIST_FILE: Sources/SignForgeApp/Info.plist
+        SWIFT_VERSION: 5.9
+    scheme:
+      testTargets:
+        - SignForgeTests
+  SignForgeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+    dependencies:
+      - target: SignForge
