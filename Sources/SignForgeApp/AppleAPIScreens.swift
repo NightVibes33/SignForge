@@ -12,6 +12,7 @@ struct CertificatesView: View {
             Section("Create from latest CSR") {
                 Picker("Type", selection: $selectedType) { ForEach(CertificateType.allCases) { Text($0.rawValue).tag($0) } }
                 Button("Create certificate with Apple") { Task { await createCertificate() } }
+                Button("Revoke latest certificate", role: .destructive) { Task { await revokeLatest() } }
                 if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }
             }
             Section("Certificates") {
@@ -23,6 +24,13 @@ struct CertificatesView: View {
                 }
             }
         }.navigationTitle("Certificates")
+    }
+
+    private func revokeLatest() async {
+        guard let cert = store.state.certificates.first else { status = "No certificate"; return }
+        guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
+        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        do { try await api.revokeCertificate(cert, credential: credential, privateKeyPEM: p8); store.state.certificates.removeAll { $0.id == cert.id }; store.save(); status = "Revoked" } catch { status = error.localizedDescription }
     }
 
     private func createCertificate() async {
@@ -53,6 +61,7 @@ struct BundleIDsView: View {
                 TextField("Identifier", text: $identifier)
                 Button("Create with Apple") { Task { await create() } }
                 Button("Refresh from Apple") { Task { await refresh() } }
+                Button("Delete latest bundle ID", role: .destructive) { Task { await deleteLatest() } }
                 if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }
             }
             Section("Bundle IDs") { ForEach(store.state.bundleIDs) { Text($0.identifier) } }
@@ -67,6 +76,12 @@ struct BundleIDsView: View {
     private func refresh() async {
         guard let auth = authMaterial() else { return }
         do { store.state.bundleIDs = try await api.listBundleIDs(credential: auth.0, privateKeyPEM: auth.1); store.save(); status = "Updated" } catch { status = error.localizedDescription }
+    }
+
+    private func deleteLatest() async {
+        guard let bundle = store.state.bundleIDs.first else { status = "No bundle ID"; return }
+        guard let auth = authMaterial() else { return }
+        do { try await api.deleteBundleID(bundle, credential: auth.0, privateKeyPEM: auth.1); store.state.bundleIDs.removeAll { $0.id == bundle.id }; store.save(); status = "Deleted" } catch { status = error.localizedDescription }
     }
 
     private func authMaterial() -> (AppleCredential, String)? {

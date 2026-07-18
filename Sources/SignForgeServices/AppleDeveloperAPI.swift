@@ -4,10 +4,13 @@ import CryptoKit
 protocol AppleDeveloperAPI {
     func healthCheck(credential: AppleCredential, privateKeyPEM: String) async throws
     func createCertificate(type: CertificateType, csrPEM: String, credential: AppleCredential, privateKeyPEM: String) async throws -> CertificateRecord
+    func revokeCertificate(_ certificate: CertificateRecord, credential: AppleCredential, privateKeyPEM: String) async throws
     func listBundleIDs(credential: AppleCredential, privateKeyPEM: String) async throws -> [BundleIDRecord]
     func createBundleID(name: String, identifier: String, credential: AppleCredential, privateKeyPEM: String) async throws -> BundleIDRecord
+    func deleteBundleID(_ bundleID: BundleIDRecord, credential: AppleCredential, privateKeyPEM: String) async throws
     func registerDevice(name: String, udid: String, platform: String, credential: AppleCredential, privateKeyPEM: String) async throws -> DeviceRecord
     func createProfile(name: String, type: ProfileType, bundleID: BundleIDRecord, certificates: [CertificateRecord], devices: [DeviceRecord], credential: AppleCredential, privateKeyPEM: String) async throws -> ProvisioningProfileRecord
+    func deleteProfile(_ profile: ProvisioningProfileRecord, credential: AppleCredential, privateKeyPEM: String) async throws
 }
 
 struct AppStoreConnectClient: AppleDeveloperAPI {
@@ -28,6 +31,12 @@ struct AppStoreConnectClient: AppleDeveloperAPI {
         return CertificateRecord(name: type.rawValue, type: type, remoteID: decoded.data.id, serialNumber: decoded.data.attributes.serialNumber ?? decoded.data.id, fingerprint: decoded.data.attributes.certificateContent.sha256Fingerprint, certificatePEM: decoded.data.attributes.certificateContent.pemCertificate, expiresAt: decoded.data.attributes.expirationDate ?? Date(), matchingKeyID: nil)
     }
 
+    func revokeCertificate(_ certificate: CertificateRecord, credential: AppleCredential, privateKeyPEM: String) async throws {
+        guard let remoteID = certificate.remoteID else { throw URLError(.badURL) }
+        let request = try authedRequest(path: "certificates/" + remoteID, method: "DELETE", credential: credential, privateKeyPEM: privateKeyPEM)
+        _ = try await session.data(for: request)
+    }
+
     func listBundleIDs(credential: AppleCredential, privateKeyPEM: String) async throws -> [BundleIDRecord] {
         let request = try authedRequest(path: "bundleIds?limit=200", method: "GET", credential: credential, privateKeyPEM: privateKeyPEM)
         let (data, _) = try await session.data(for: request)
@@ -41,6 +50,12 @@ struct AppStoreConnectClient: AppleDeveloperAPI {
         let (data, _) = try await session.data(for: request)
         let decoded = try JSONDecoder().decode(BundleIDCreateResponse.self, from: data)
         return BundleIDRecord(remoteID: decoded.data.id, identifier: decoded.data.attributes.identifier, name: decoded.data.attributes.name, capabilities: [])
+    }
+
+    func deleteBundleID(_ bundleID: BundleIDRecord, credential: AppleCredential, privateKeyPEM: String) async throws {
+        guard let remoteID = bundleID.remoteID else { throw URLError(.badURL) }
+        let request = try authedRequest(path: "bundleIds/" + remoteID, method: "DELETE", credential: credential, privateKeyPEM: privateKeyPEM)
+        _ = try await session.data(for: request)
     }
 
     func registerDevice(name: String, udid: String, platform: String, credential: AppleCredential, privateKeyPEM: String) async throws -> DeviceRecord {
@@ -60,6 +75,12 @@ struct AppStoreConnectClient: AppleDeveloperAPI {
         let (data, _) = try await session.data(for: request)
         let decoded = try JSONDecoder.signForge.decode(ProfileCreateResponse.self, from: data)
         return ProvisioningProfileRecord(remoteID: decoded.data.id, name: decoded.data.attributes.name, uuid: decoded.data.attributes.uuid, type: type, bundleIdentifier: bundleID.identifier, certificateFingerprints: certificates.map(\.fingerprint), deviceUDIDs: devices.map(\.udid), entitlements: [:], expiresAt: decoded.data.attributes.expirationDate)
+    }
+
+    func deleteProfile(_ profile: ProvisioningProfileRecord, credential: AppleCredential, privateKeyPEM: String) async throws {
+        guard let remoteID = profile.remoteID else { throw URLError(.badURL) }
+        let request = try authedRequest(path: "profiles/" + remoteID, method: "DELETE", credential: credential, privateKeyPEM: privateKeyPEM)
+        _ = try await session.data(for: request)
     }
 
     private func authedRequest(path: String, method: String, credential: AppleCredential, privateKeyPEM: String, body: [String: Any]? = nil) throws -> URLRequest {

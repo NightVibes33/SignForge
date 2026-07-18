@@ -113,6 +113,7 @@ struct ProfilesView: View {
                 TextField("Name", text: $profileName)
                 Picker("Type", selection: $profileType) { ForEach(ProfileType.allCases) { Text($0.rawValue).tag($0) } }
                 Button("Create with Apple") { Task { await createProfile() } }
+                Button("Delete latest profile", role: .destructive) { Task { await deleteLatestProfile() } }
                 Button("Import .mobileprovision") { importing = true }
                 if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }
             }
@@ -140,6 +141,13 @@ struct ProfilesView: View {
             store.addArtifact(ArtifactRecord(name: profile.name + ".mobileprovision", kind: .profile, detail: profile.uuid))
             status = "Created"
         } catch { status = error.localizedDescription }
+    }
+
+    private func deleteLatestProfile() async {
+        guard let profile = store.state.profiles.first else { status = "No profile"; return }
+        guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
+        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        do { try await api.deleteProfile(profile, credential: credential, privateKeyPEM: p8); store.state.profiles.removeAll { $0.id == profile.id }; store.save(); status = "Deleted" } catch { status = error.localizedDescription }
     }
 
     private func importProfile(_ result: Result<URL, Error>) {
