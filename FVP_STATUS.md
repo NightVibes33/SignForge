@@ -4,6 +4,7 @@ SignForge is implemented as a private iOS signing workstation with an optional l
 
 ## Implemented locally in the iOS app
 
+- Sign in with Apple identity linking for the app user
 - App Store Connect API credential capture and Keychain storage
 - ES256 JWT generation for App Store Connect API keys
 - App Store Connect request client for health check, certificate creation/revocation, bundle ID listing/creation/deletion, device registration, and provisioning profile creation/deletion
@@ -26,6 +27,10 @@ SignForge is implemented as a private iOS signing workstation with an optional l
 ## Not pushed
 
 The current FVP expansion is committed only in the local repo at `/root/SignForge`. It has not been pushed to GitHub after the previous green baseline.
+
+## Apple ID login boundary
+
+Apple does not provide a supported Apple ID login/OAuth scope that grants App Store Connect provisioning API access. SignForge therefore links the user with Sign in with Apple, but provisioning still uses App Store Connect API keys. The app does not collect Apple ID passwords or scrape Apple web sessions.
 
 ## Remaining hardening before real personal use
 

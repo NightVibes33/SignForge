@@ -2,6 +2,7 @@ import SwiftUI
 
 enum AppSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
+    case connect = "Connect Apple"
     case credentials = "Apple credentials"
     case keys = "Keys and CSRs"
     case certificates = "Certificates"
@@ -30,6 +31,7 @@ struct RootView: View {
         } detail: {
             switch selection ?? .dashboard {
             case .dashboard: DashboardView()
+            case .connect: AppleAccountOnboardingView()
             case .credentials: CredentialView()
             case .keys: KeysCSRView()
             case .certificates: CertificatesView()
