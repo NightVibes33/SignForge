@@ -13,5 +13,28 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
-      - name: Build
+      - name: Build simulator
         run: xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 17' build
+      - name: Archive unsigned device app
+        run: |
+          xcodebuild archive \
+            -scheme SignForge \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/SignForge.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            SKIP_INSTALL=NO
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p "$PWD/build/Payload"
+          cp -R "$PWD/build/SignForge.xcarchive/Products/Applications/SignForge.app" "$PWD/build/Payload/"
+          cd "$PWD/build"
+          zip -qry SignForge-unsigned-ios26-device.ipa Payload
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SignForge-unsigned-ios26-device-ipa
+          path: build/SignForge-unsigned-ios26-device.ipa
+          if-no-files-found: error
