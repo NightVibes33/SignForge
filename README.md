@@ -25,3 +25,7 @@ xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 17
 ```
 
 The GitHub Actions workflow generates the project on macOS and runs a simulator build.
+
+## FVP architecture
+
+The iOS app owns the local developer workflow: credentials, Keychain keys, CSR generation, Apple API calls, profile parsing, validation, artifact history, and export manifests. Pure public iOS APIs do not provide a complete PKCS#12 export or IPA `codesign` toolchain, so the repo also includes an optional localhost helper in `Tools/signforge-helper` for those operations.
