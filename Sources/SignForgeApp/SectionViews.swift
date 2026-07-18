@@ -132,7 +132,7 @@ struct ProfilesView: View {
 
     private func createProfile() async {
         guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        guard let p8 = (try? keychain.loadString(account: credential.id.uuidString + ".p8")) ?? nil else { status = "Missing .p8 in Keychain"; return }
         guard let bundle = store.state.bundleIDs.first else { status = "Create or refresh a bundle ID first"; return }
         guard !store.state.certificates.isEmpty else { status = "Create a certificate first"; return }
         do {
@@ -146,7 +146,7 @@ struct ProfilesView: View {
     private func deleteLatestProfile() async {
         guard let profile = store.state.profiles.first else { status = "No profile"; return }
         guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        guard let p8 = (try? keychain.loadString(account: credential.id.uuidString + ".p8")) ?? nil else { status = "Missing .p8 in Keychain"; return }
         do { try await api.deleteProfile(profile, credential: credential, privateKeyPEM: p8); store.state.profiles.removeAll { $0.id == profile.id }; store.save(); status = "Deleted" } catch { status = error.localizedDescription }
     }
 

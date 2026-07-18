@@ -38,8 +38,7 @@ struct SigningCrypto {
         ]
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-            let status = (error?.takeRetainedValue() as NSError?)?.code ?? Int(errSecParam)
-            throw SigningCryptoError.keyGenerationFailed(OSStatus(status))
+            throw SigningCryptoError.keyGenerationFailed(errSecParam)
         }
         guard let publicKey = SecKeyCopyPublicKey(privateKey) else { throw SigningCryptoError.publicKeyUnavailable }
         let publicData = try exportPublicKey(publicKey)
