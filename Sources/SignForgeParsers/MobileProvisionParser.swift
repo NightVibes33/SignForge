@@ -18,6 +18,16 @@ struct MobileProvisionParser {
         return regexFallback(data: data, fallbackName: fallbackName)
     }
 
+
+    func entitlementsPlist(data: Data) -> String? {
+        let plistData = extractPlist(from: data) ?? data
+        guard let object = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil),
+              let plist = object as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any],
+              let output = try? PropertyListSerialization.data(fromPropertyList: entitlements, format: .xml, options: 0) else { return nil }
+        return String(data: output, encoding: .utf8)
+    }
+
     private func extractPlist(from data: Data) -> Data? {
         let text = String(decoding: data, as: UTF8.self)
         guard let start = text.range(of: "<?xml"), let end = text.range(of: "</plist>") else { return nil }

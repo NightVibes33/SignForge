@@ -16,6 +16,7 @@ struct P12BuilderView: View {
         Form {
             Section("Certificate") {
                 TextEditor(text: $certificatePEM).frame(minHeight: 140)
+                Button("Use latest certificate") { certificatePEM = store.state.certificates.first?.certificatePEM ?? "" }
             }
             Section("Private key") {
                 Picker("Key", selection: $selectedKeyID) {

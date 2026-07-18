@@ -40,21 +40,39 @@ struct CertificatesView: View {
 
 struct BundleIDsView: View {
     @Environment(VaultStore.self) private var store
+    @State private var name = "New app"
+    @State private var identifier = "com.example.app"
     @State private var status = ""
     private let api = AppStoreConnectClient()
     private let keychain = KeychainVault()
 
     var body: some View {
-        List {
-            Section { Button("Refresh from Apple") { Task { await refresh() } }; if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) } }
+        Form {
+            Section("Create bundle ID") {
+                TextField("Name", text: $name)
+                TextField("Identifier", text: $identifier)
+                Button("Create with Apple") { Task { await create() } }
+                Button("Refresh from Apple") { Task { await refresh() } }
+                if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }
+            }
             Section("Bundle IDs") { ForEach(store.state.bundleIDs) { Text($0.identifier) } }
         }.navigationTitle("Bundle IDs")
     }
 
+    private func create() async {
+        guard let auth = authMaterial() else { return }
+        do { let bundle = try await api.createBundleID(name: name, identifier: identifier, credential: auth.0, privateKeyPEM: auth.1); store.state.bundleIDs.insert(bundle, at: 0); store.save(); status = "Created" } catch { status = error.localizedDescription }
+    }
+
     private func refresh() async {
-        guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
-        do { store.state.bundleIDs = try await api.listBundleIDs(credential: credential, privateKeyPEM: p8); store.save(); status = "Updated" } catch { status = error.localizedDescription }
+        guard let auth = authMaterial() else { return }
+        do { store.state.bundleIDs = try await api.listBundleIDs(credential: auth.0, privateKeyPEM: auth.1); store.save(); status = "Updated" } catch { status = error.localizedDescription }
+    }
+
+    private func authMaterial() -> (AppleCredential, String)? {
+        guard let credential = store.state.credentials.first else { status = "Missing credential"; return nil }
+        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return nil }
+        return (credential, p8)
     }
 }
 

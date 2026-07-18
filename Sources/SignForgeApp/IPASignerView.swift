@@ -58,6 +58,7 @@ struct IPASignerView: View {
             let parsed = MobileProvisionParser().parse(data: data, fallbackName: url.lastPathComponent)
             store.state.profiles.insert(parsed, at: 0)
             store.addArtifact(ArtifactRecord(name: url.lastPathComponent, kind: .profile, detail: parsed.uuid))
+            entitlements = MobileProvisionParser().entitlementsPlist(data: data) ?? entitlements
             status = "Profile imported"
         }
     }

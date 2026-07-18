@@ -5,6 +5,7 @@ protocol AppleDeveloperAPI {
     func healthCheck(credential: AppleCredential, privateKeyPEM: String) async throws
     func createCertificate(type: CertificateType, csrPEM: String, credential: AppleCredential, privateKeyPEM: String) async throws -> CertificateRecord
     func listBundleIDs(credential: AppleCredential, privateKeyPEM: String) async throws -> [BundleIDRecord]
+    func createBundleID(name: String, identifier: String, credential: AppleCredential, privateKeyPEM: String) async throws -> BundleIDRecord
     func registerDevice(name: String, udid: String, platform: String, credential: AppleCredential, privateKeyPEM: String) async throws -> DeviceRecord
     func createProfile(name: String, type: ProfileType, bundleID: BundleIDRecord, certificates: [CertificateRecord], devices: [DeviceRecord], credential: AppleCredential, privateKeyPEM: String) async throws -> ProvisioningProfileRecord
 }
@@ -24,7 +25,7 @@ struct AppStoreConnectClient: AppleDeveloperAPI {
         let request = try authedRequest(path: "certificates", method: "POST", credential: credential, privateKeyPEM: privateKeyPEM, body: body)
         let (data, _) = try await session.data(for: request)
         let decoded = try JSONDecoder().decode(CertificateCreateResponse.self, from: data)
-        return CertificateRecord(name: type.rawValue, type: type, remoteID: decoded.data.id, serialNumber: decoded.data.attributes.serialNumber ?? decoded.data.id, fingerprint: decoded.data.attributes.certificateContent.sha256Fingerprint, expiresAt: decoded.data.attributes.expirationDate ?? Date(), matchingKeyID: nil)
+        return CertificateRecord(name: type.rawValue, type: type, remoteID: decoded.data.id, serialNumber: decoded.data.attributes.serialNumber ?? decoded.data.id, fingerprint: decoded.data.attributes.certificateContent.sha256Fingerprint, certificatePEM: decoded.data.attributes.certificateContent.pemCertificate, expiresAt: decoded.data.attributes.expirationDate ?? Date(), matchingKeyID: nil)
     }
 
     func listBundleIDs(credential: AppleCredential, privateKeyPEM: String) async throws -> [BundleIDRecord] {
@@ -32,6 +33,14 @@ struct AppStoreConnectClient: AppleDeveloperAPI {
         let (data, _) = try await session.data(for: request)
         let decoded = try JSONDecoder().decode(BundleIDListResponse.self, from: data)
         return decoded.data.map { BundleIDRecord(remoteID: $0.id, identifier: $0.attributes.identifier, name: $0.attributes.name, capabilities: []) }
+    }
+
+    func createBundleID(name: String, identifier: String, credential: AppleCredential, privateKeyPEM: String) async throws -> BundleIDRecord {
+        let body: [String: Any] = ["data": ["type": "bundleIds", "attributes": ["name": name, "identifier": identifier, "platform": "IOS"]]]
+        let request = try authedRequest(path: "bundleIds", method: "POST", credential: credential, privateKeyPEM: privateKeyPEM, body: body)
+        let (data, _) = try await session.data(for: request)
+        let decoded = try JSONDecoder().decode(BundleIDCreateResponse.self, from: data)
+        return BundleIDRecord(remoteID: decoded.data.id, identifier: decoded.data.attributes.identifier, name: decoded.data.attributes.name, capabilities: [])
     }
 
     func registerDevice(name: String, udid: String, platform: String, credential: AppleCredential, privateKeyPEM: String) async throws -> DeviceRecord {
@@ -70,6 +79,8 @@ private extension ProfileType { var apiValue: String { [ProfileType.development:
 private extension String {
     var apiDevicePlatform: String { lowercased().contains("mac") ? "MAC_OS" : "IOS" }
     var sha256Fingerprint: String { Data(utf8).sha256Fingerprint }
+    var pemCertificate: String { contains("BEGIN CERTIFICATE") ? self : "-----BEGIN CERTIFICATE-----\n" + self.chunked(every: 64).joined(separator: "\n") + "\n-----END CERTIFICATE-----" }
+    func chunked(every size: Int) -> [String] { stride(from: 0, to: count, by: size).map { index in let start = self.index(startIndex, offsetBy: index); let end = self.index(start, offsetBy: Swift.min(size, distance(from: start, to: endIndex))); return String(self[start..<end]) } }
 }
 private extension Data { var sha256Fingerprint: String { SHA256.hash(data: self).map { String(format: "%02X", $0) }.joined(separator: ":") } }
 
@@ -77,6 +88,7 @@ struct CertificateCreateResponse: Decodable { let data: CertificateResource }
 struct CertificateResource: Decodable { let id: String; let attributes: CertificateAttributes }
 struct CertificateAttributes: Decodable { let certificateContent: String; let serialNumber: String?; let expirationDate: Date? }
 struct BundleIDListResponse: Decodable { let data: [BundleIDResource] }
+struct BundleIDCreateResponse: Decodable { let data: BundleIDResource }
 struct BundleIDResource: Decodable { let id: String; let attributes: BundleIDAttributes }
 struct BundleIDAttributes: Decodable { let identifier: String; let name: String }
 struct DeviceCreateResponse: Decodable { let data: DeviceResource }

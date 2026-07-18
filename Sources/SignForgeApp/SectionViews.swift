@@ -100,11 +100,22 @@ struct KeysCSRView: View {
 struct ProfilesView: View {
     @Environment(VaultStore.self) private var store
     @State private var importing = false
+    @State private var profileName = "Development profile"
+    @State private var profileType: ProfileType = .development
+    @State private var status = ""
     private let workflow = ArtifactWorkflow()
+    private let api = AppStoreConnectClient()
+    private let keychain = KeychainVault()
 
     var body: some View {
         List {
-            Section { Button("Import .mobileprovision") { importing = true } }
+            Section("Create profile") {
+                TextField("Name", text: $profileName)
+                Picker("Type", selection: $profileType) { ForEach(ProfileType.allCases) { Text($0.rawValue).tag($0) } }
+                Button("Create with Apple") { Task { await createProfile() } }
+                Button("Import .mobileprovision") { importing = true }
+                if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }
+            }
             Section("Profiles") {
                 ForEach(store.state.profiles) { profile in
                     VStack(alignment: .leading) {
@@ -115,15 +126,30 @@ struct ProfilesView: View {
             }
         }
         .navigationTitle("Profiles")
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { result in
-            guard case .success(let url) = result else { return }
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url) else { return }
-            let profile = workflow.importMobileProvision(data: data, filename: url.lastPathComponent)
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { result in importProfile(result) }
+    }
+
+    private func createProfile() async {
+        guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
+        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        guard let bundle = store.state.bundleIDs.first else { status = "Create or refresh a bundle ID first"; return }
+        guard !store.state.certificates.isEmpty else { status = "Create a certificate first"; return }
+        do {
+            let profile = try await api.createProfile(name: profileName, type: profileType, bundleID: bundle, certificates: store.state.certificates, devices: store.state.devices, credential: credential, privateKeyPEM: p8)
             store.state.profiles.insert(profile, at: 0)
-            store.addArtifact(ArtifactRecord(name: url.lastPathComponent, kind: .profile, detail: profile.uuid))
-        }
+            store.addArtifact(ArtifactRecord(name: profile.name + ".mobileprovision", kind: .profile, detail: profile.uuid))
+            status = "Created"
+        } catch { status = error.localizedDescription }
+    }
+
+    private func importProfile(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let profile = workflow.importMobileProvision(data: data, filename: url.lastPathComponent)
+        store.state.profiles.insert(profile, at: 0)
+        store.addArtifact(ArtifactRecord(name: url.lastPathComponent, kind: .profile, detail: profile.uuid))
     }
 }
 

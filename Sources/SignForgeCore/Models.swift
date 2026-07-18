@@ -56,6 +56,7 @@ struct CertificateRecord: Identifiable, Codable, Hashable {
     var remoteID: String? = nil
     var serialNumber: String
     var fingerprint: String
+    var certificatePEM: String? = nil
     var expiresAt: Date
     var matchingKeyID: UUID?
 }
