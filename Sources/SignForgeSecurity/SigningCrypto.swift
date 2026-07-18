@@ -59,6 +59,15 @@ struct SigningCrypto {
         return pem(label: "CERTIFICATE REQUEST", der: csr)
     }
 
+    func exportPrivateKeyPEM(key: SigningKey) throws -> String {
+        guard key.exportable else { throw SigningCryptoError.nonExportableKey }
+        guard let tag = key.keychainTag else { throw SigningCryptoError.keyLookupFailed(errSecItemNotFound) }
+        let privateKey = try loadPrivateKey(tag: tag)
+        var error: Unmanaged<CFError>?
+        guard let data = SecKeyCopyExternalRepresentation(privateKey, &error) as Data? else { throw SigningCryptoError.publicKeyExportFailed }
+        return pem(label: "RSA PRIVATE KEY", der: data)
+    }
+
     func exportP12(certificate: CertificateRecord, key: SigningKey, password: String) throws -> Data {
         guard key.exportable else { throw SigningCryptoError.nonExportableKey }
         throw SigningCryptoError.unsupportedExport

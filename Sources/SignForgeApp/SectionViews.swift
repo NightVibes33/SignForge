@@ -139,34 +139,6 @@ struct InventoryView: View {
     }
 }
 
-struct BuilderView: View {
-    @Environment(VaultStore.self) private var store
-    @State private var exportPackage: ExportPackage?
-    @State private var isExporting = false
-    var kind: SigningAssetKind
-    private let workflow = ArtifactWorkflow()
-
-    var body: some View {
-        Form {
-            Section(kind == .p12 ? "P12 export" : "IPA resign") {
-                Text(kind == .p12 ? "Uses the selected certificate and exportable key." : "Creates a signing plan for imported IPA workflows.").foregroundStyle(.secondary)
-                Button(kind == .p12 ? "Create CI signing package" : "Create IPA resign plan") { createPackage() }
-            }
-        }
-        .navigationTitle(kind.rawValue)
-        .fileExporter(isPresented: $isExporting, document: ArtifactDocument(text: exportPackage?.payload.exportText ?? ""), contentType: .plainText, defaultFilename: exportPackage?.filename ?? "artifact.txt") { _ in }
-    }
-
-    private func createPackage() {
-        let credential = store.state.credentials.first ?? AppleCredential(name: "Missing", issuerID: "", keyID: "", teamID: "", p8KeyPreview: "")
-        let certificate = store.state.certificates.first
-        let profile = store.state.profiles.first
-        exportPackage = kind == .p12 ? workflow.makeCIManifest(credential: credential, certificate: certificate, profile: profile) : workflow.makeIPAResignManifest(bundleIdentifier: profile?.bundleIdentifier ?? "missing", profile: profile, certificate: certificate)
-        store.addArtifact(ArtifactRecord(name: exportPackage?.filename ?? "artifact", kind: kind, detail: "Export package ready"))
-        isExporting = true
-    }
-}
-
 struct ArtifactVaultView: View {
     @Environment(VaultStore.self) private var store
     var body: some View { List(store.state.artifacts) { artifact in VStack(alignment: .leading) { Text(artifact.name); Text("\(artifact.kind.rawValue) - \(artifact.detail)").font(.caption).foregroundStyle(.secondary) } }.navigationTitle("Artifact vault") }

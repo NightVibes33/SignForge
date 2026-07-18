@@ -51,13 +51,52 @@ class Handler(BaseHTTPRequestHandler):
             return {"filename": "identity.p12", "base64": base64.b64encode(open(out, "rb").read()).decode(), "log": log}
 
     def resign(self, payload):
-        if not shutil.which("codesign"):
-            raise RuntimeError("IPA resign requires macOS codesign in this helper environment")
+        for tool in ["codesign", "security", "unzip", "zip"]:
+            if not shutil.which(tool):
+                raise RuntimeError("IPA resign requires macOS tool: " + tool)
         with tempfile.TemporaryDirectory() as td:
-            ipa = os.path.join(td, "app.ipa")
+            ipa = os.path.join(td, "input.ipa")
+            p12 = os.path.join(td, "identity.p12")
+            profile = os.path.join(td, "embedded.mobileprovision")
+            keychain = os.path.join(td, "signforge.keychain-db")
+            work = os.path.join(td, "work")
+            out = os.path.join(td, "signed.ipa")
             open(ipa, "wb").write(base64.b64decode(payload["ipaBase64"]))
-            log = "codesign integration point prepared; implement certificate import and app bundle signing here"
-            return {"filename": "signed.ipa", "base64": base64.b64encode(open(ipa, "rb").read()).decode(), "log": log}
+            open(p12, "wb").write(base64.b64decode(payload["p12Base64"]))
+            open(profile, "wb").write(base64.b64decode(payload["mobileProvisionBase64"]))
+            os.makedirs(work)
+            log = run(["unzip", "-q", ipa, "-d", work])
+            payload_dir = os.path.join(work, "Payload")
+            apps = [os.path.join(payload_dir, name) for name in os.listdir(payload_dir) if name.endswith(".app")]
+            if not apps:
+                raise RuntimeError("IPA did not contain Payload/*.app")
+            app = apps[0]
+            shutil.copy(profile, os.path.join(app, "embedded.mobileprovision"))
+            keychain_password = "signforge-temp"
+            log += run(["security", "create-keychain", "-p", keychain_password, keychain])
+            log += run(["security", "unlock-keychain", "-p", keychain_password, keychain])
+            log += run(["security", "import", p12, "-k", keychain, "-P", payload["p12Password"], "-T", "/usr/bin/codesign"])
+            log += run(["security", "set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", keychain_password, keychain])
+            identities = run(["security", "find-identity", "-v", "-p", "codesigning", keychain])
+            identity = None
+            for line in identities.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[0].rstrip(")").isdigit():
+                    identity = parts[1]
+                    break
+            if not identity:
+                raise RuntimeError("No codesigning identity found in P12")
+            entitlements = None
+            if payload.get("entitlementsPlist"):
+                entitlements = os.path.join(td, "entitlements.plist")
+                open(entitlements, "w").write(payload["entitlementsPlist"])
+            cmd = ["codesign", "-f", "-s", identity, "--keychain", keychain]
+            if entitlements:
+                cmd += ["--entitlements", entitlements]
+            cmd += [app]
+            log += run(cmd)
+            log += run(["zip", "-qry", out, "Payload"], cwd=work)
+            return {"filename": "signed.ipa", "base64": base64.b64encode(open(out, "rb").read()).decode(), "log": log + identities}
 
 if __name__ == "__main__":
     HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

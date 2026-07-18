@@ -11,15 +11,16 @@ SignForge is implemented as a private iOS signing workstation with an optional l
 - PKCS#10 CSR DER/PEM generation signed by the local private key
 - `.mobileprovision` plist extraction and parsing
 - artifact vault, audit log, validation engine, and project dashboard
-- Files import for provisioning profiles
-- Files export for CSR, CI manifests, and IPA resign plans
-- live screens for certificates, bundle IDs, devices, profiles, P12 package planning, and IPA signing plans
+- Files import for provisioning profiles, IPAs, and P12 files
+- Files export for CSR, `.p12`, CI manifests, IPA resign plans, and signed IPAs
+- live screens for certificates, bundle IDs, devices, profiles, P12 export, and IPA signing
 
 ## Implemented as optional helper bridge
 
 - localhost JSON bridge from iOS app to helper
 - helper endpoint for `.p12` export using OpenSSL
-- helper endpoint scaffold for IPA resigning, requiring macOS `codesign`
+- helper endpoint for IPA resigning on macOS: unzip IPA, replace embedded profile, create temporary keychain, import P12, run `codesign`, and zip signed IPA
+- helper unit tests for failure surfacing and environment-gated resign behavior
 
 ## Not pushed
 
@@ -27,8 +28,8 @@ The current FVP expansion is committed only in the local repo at `/root/SignForg
 
 ## Remaining hardening before real personal use
 
-- wire the P12 screen to collect certificate PEM/private key PEM and call `SigningHelperClient.exportP12`
-- complete macOS helper IPA resigning: unzip IPA, replace embedded profile, merge entitlements, import identity, run `codesign`, zip IPA
+- complete certificate content storage so Apple-created `.cer` data can feed the P12 builder without manual paste
+- extract and propose entitlements from the selected `.mobileprovision`
 - add revocation/delete operations for Apple API assets
 - add stronger migration for older vault JSON shapes
 - run GitHub Actions after explicit push approval
