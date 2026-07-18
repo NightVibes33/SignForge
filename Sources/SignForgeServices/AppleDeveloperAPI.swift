@@ -95,7 +95,16 @@ struct AppStoreConnectClient: AppleDeveloperAPI {
     }
 }
 
-private extension CertificateType { var apiValue: String { self == .appleDistribution ? "DISTRIBUTION" : "DEVELOPMENT" } }
+private extension CertificateType {
+    var apiValue: String {
+        switch self {
+        case .development: return "IOS_DEVELOPMENT"
+        case .distribution: return "IOS_DISTRIBUTION"
+        case .appleDevelopment: return "DEVELOPMENT"
+        case .appleDistribution: return "DISTRIBUTION"
+        }
+    }
+}
 private extension ProfileType { var apiValue: String { [ProfileType.development: "IOS_APP_DEVELOPMENT", .adHoc: "IOS_APP_ADHOC", .appStore: "IOS_APP_STORE", .enterprise: "IOS_APP_INHOUSE"][self] ?? "IOS_APP_DEVELOPMENT" } }
 private extension String {
     var apiDevicePlatform: String { lowercased().contains("mac") ? "MAC_OS" : "IOS" }
