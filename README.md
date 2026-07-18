@@ -21,7 +21,7 @@ This repo uses XcodeGen.
 
 ```sh
 xcodegen generate
-xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 17' build
 ```
 
 The GitHub Actions workflow generates the project on macOS and runs a simulator build.

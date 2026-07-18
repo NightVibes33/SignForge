@@ -14,4 +14,4 @@ jobs:
       - name: Generate project
         run: xcodegen generate
       - name: Build
-        run: xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 16' build
+        run: xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 17' build
