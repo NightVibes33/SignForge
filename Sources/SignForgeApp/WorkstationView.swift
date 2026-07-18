@@ -1,4 +1,3 @@
-import AuthenticationServices
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -54,7 +53,7 @@ enum SigningStep: String, CaseIterable, Identifiable {
     }
     var subtitle: String {
         switch self {
-        case .connect: return "API access"
+        case .connect: return "API key"
         case .p12: return "Helper export"
         case .profile: return "Provisioning"
         case .ipa: return "Optional signing"
@@ -74,8 +73,7 @@ enum SigningStep: String, CaseIterable, Identifiable {
 
 struct AppBackground: View {
     var body: some View {
-        LinearGradient(colors: [Color(red: 0.05, green: 0.07, blue: 0.09), Color(red: 0.08, green: 0.10, blue: 0.13), Color(red: 0.04, green: 0.09, blue: 0.09)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            .ignoresSafeArea()
+Color(uiColor: .systemBackground).ignoresSafeArea()
     }
 }
 
@@ -89,10 +87,10 @@ struct HeroPanel: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Apple signing studio")
                         .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
-                    Text("Create Apple signing assets from iOS. On-device handles API auth, keys, CSR, and profiles; P12 and IPA packaging can hand off to the local helper when iOS blocks direct export.")
+                        .foregroundStyle(.primary)
+                    Text("Create Apple signing assets from iOS using App Store Connect API keys. No Apple ID password collection, no broken Sign in with Apple requirement.")
                         .font(.callout)
-                        .foregroundStyle(.white.opacity(0.74))
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 12)
@@ -100,7 +98,7 @@ struct HeroPanel: View {
                     .font(.system(size: 34, weight: .semibold))
                     .foregroundStyle(.mint)
                     .padding(12)
-                    .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             HStack(spacing: 10) {
                 StatPill(title: "Keys", value: store.state.keys.count, tint: .mint)
@@ -114,8 +112,8 @@ struct HeroPanel: View {
             .buttonStyle(PrimaryButtonStyle())
         }
         .padding(20)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(.white.opacity(0.14)))
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.primary.opacity(0.08)))
     }
 }
 
@@ -134,11 +132,11 @@ struct StepRail: View {
                         }
                         .frame(width: 126, alignment: .leading)
                         .padding(14)
-                        .background(selectedStep == step ? Color.white.opacity(0.18) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(selectedStep == step ? Color.mint.opacity(0.7) : Color.white.opacity(0.10)))
+                        .background(selectedStep == step ? Color.mint.opacity(0.16) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(selectedStep == step ? Color.mint.opacity(0.7) : Color.primary.opacity(0.08)))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                 }
             }
         }
@@ -152,12 +150,12 @@ struct StatPill: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.caption).foregroundStyle(.white.opacity(0.62))
+            Text(title).font(.caption).foregroundStyle(.secondary)
             Text(value, format: .number).font(.title3.weight(.bold)).foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -174,21 +172,21 @@ struct SurfaceCard<Content: View>: View {
                     .frame(width: 42, height: 42)
                     .background(Color.mint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.title3.weight(.bold)).foregroundStyle(.white)
-                    Text(subtitle).font(.footnote).foregroundStyle(.white.opacity(0.62))
+                    Text(title).font(.title3.weight(.bold)).foregroundStyle(.primary)
+                    Text(subtitle).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             content
         }
         .padding(18)
-        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.10)))
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.primary.opacity(0.08)))
     }
 }
 
 struct ConnectSurface: View {
     @Environment(VaultStore.self) private var store
-    @State private var name = "Apple developer team"
+    @State private var name = ""
     @State private var issuerID = ""
     @State private var keyID = ""
     @State private var teamID = ""
@@ -197,16 +195,7 @@ struct ConnectSurface: View {
     private let keychain = KeychainVault()
 
     var body: some View {
-        SurfaceCard(title: "Connect Apple developer access", subtitle: "Sign in identifies the user. API key powers certificate and profile creation.", icon: "apple.logo") {
-            SignInWithAppleButton(.continue) { request in
-                request.requestedScopes = [.email, .fullName]
-            } onCompletion: { result in
-                switch result {
-                case .success: status = "Apple identity linked"
-                case .failure(let error): status = error.localizedDescription
-                }
-            }
-            .frame(height: 48)
+        SurfaceCard(title: "Connect App Store Connect", subtitle: "Provisioning requires an App Store Connect API key. Apple ID login alone cannot create certs or profiles.", icon: "key.fill") {
             CredentialFields(name: $name, issuerID: $issuerID, keyID: $keyID, teamID: $teamID, p8: $p8)
             Button { saveCredential() } label: { Label("Save API key", systemImage: "key.fill") }.buttonStyle(PrimaryButtonStyle())
             Link(destination: URL(string: "https://appstoreconnect.apple.com/access/integrations/api")!) {
@@ -248,12 +237,12 @@ struct CredentialFields: View {
             }
             TextEditor(text: $p8)
                 .scrollContentBackground(.hidden)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .frame(minHeight: 116)
                 .padding(10)
-                .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(alignment: .topLeading) {
-                    if p8.isEmpty { Text("Paste .p8 private key").foregroundStyle(.white.opacity(0.36)).padding(16) }
+                    if p8.isEmpty { Text("Paste .p8 private key").foregroundStyle(.secondary).padding(16) }
                 }
         }
     }
@@ -261,8 +250,8 @@ struct CredentialFields: View {
 
 struct P12MakerSurface: View {
     @Environment(VaultStore.self) private var store
-    @State private var commonName = "Apple Distribution"
-    @State private var organization = "Developer Team"
+    @State private var commonName = ""
+    @State private var organization = ""
     @State private var country = "US"
     @State private var certificatePEM = ""
     @State private var password = ""
@@ -290,11 +279,11 @@ struct P12MakerSurface: View {
             SecureDarkField("P12 password", text: $password)
             TextEditor(text: $certificatePEM)
                 .scrollContentBackground(.hidden)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .frame(minHeight: 110)
                 .padding(10)
-                .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(alignment: .topLeading) { if certificatePEM.isEmpty { Text("Certificate PEM auto-fills from latest cert, or paste it here").foregroundStyle(.white.opacity(0.36)).padding(16) } }
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(alignment: .topLeading) { if certificatePEM.isEmpty { Text("Certificate PEM auto-fills from latest cert, or paste it here").foregroundStyle(.secondary).padding(16) } }
             HStack(spacing: 10) {
                 Button("Generate key") { generateKey() }.buttonStyle(SecondaryButtonStyle())
                 Button("Export CSR") { exportCSR() }.buttonStyle(SecondaryButtonStyle())
@@ -343,9 +332,9 @@ struct P12MakerSurface: View {
 
 struct ProfileMakerSurface: View {
     @Environment(VaultStore.self) private var store
-    @State private var bundleName = "New app"
-    @State private var bundleID = "com.example.app"
-    @State private var deviceName = "Developer iPhone"
+    @State private var bundleName = ""
+    @State private var bundleID = ""
+    @State private var deviceName = ""
     @State private var udid = ""
     @State private var profileName = "Development profile"
     @State private var profileType: ProfileType = .development
@@ -448,13 +437,13 @@ struct VaultSurface: View {
                         HStack(spacing: 12) {
                             Image(systemName: icon(for: artifact.kind)).foregroundStyle(.mint).frame(width: 26)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(artifact.name).foregroundStyle(.white).font(.subheadline.weight(.semibold))
-                                Text(artifact.kind.rawValue).font(.caption).foregroundStyle(.white.opacity(0.56))
+                                Text(artifact.name).foregroundStyle(.primary).font(.subheadline.weight(.semibold))
+                                Text(artifact.kind.rawValue).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                         }
                         .padding(12)
-                        .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                 }
             }
@@ -491,13 +480,13 @@ struct MiniMetric: View {
         HStack(spacing: 8) {
             Image(systemName: icon).foregroundStyle(.mint)
             VStack(alignment: .leading, spacing: 1) {
-                Text(count, format: .number).font(.headline.weight(.bold)).foregroundStyle(.white)
-                Text(label).font(.caption2).foregroundStyle(.white.opacity(0.56))
+                Text(count, format: .number).font(.headline.weight(.bold)).foregroundStyle(.primary)
+                Text(label).font(.caption2).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -508,15 +497,15 @@ struct FlowChecklist: View {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack {
                     Image(systemName: item.1 ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(item.1 ? .mint : .white.opacity(0.35))
-                    Text(item.0).foregroundStyle(.white.opacity(0.82))
+                        .foregroundStyle(item.1 ? .mint : .secondary)
+                    Text(item.0).foregroundStyle(.primary)
                     Spacer()
                 }
                 .font(.subheadline.weight(.medium))
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -525,10 +514,10 @@ struct StatusLine: View {
     var body: some View {
         Text(text)
             .font(.footnote)
-            .foregroundStyle(.white.opacity(0.66))
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -541,9 +530,9 @@ struct DarkField: View {
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .padding(13)
-            .foregroundStyle(.white)
-            .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.08)))
+            .foregroundStyle(.primary)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.primary.opacity(0.08)))
     }
 }
 
@@ -554,9 +543,9 @@ struct SecureDarkField: View {
     var body: some View {
         SecureField(placeholder, text: $text)
             .padding(13)
-            .foregroundStyle(.white)
-            .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.08)))
+            .foregroundStyle(.primary)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.primary.opacity(0.08)))
     }
 }
 
@@ -564,10 +553,10 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
-            .foregroundStyle(.black)
+            .foregroundStyle(.white)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(Color.mint.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .background(Color.accentColor.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }
@@ -576,10 +565,10 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(.primary)
             .padding(.vertical, 13)
             .frame(maxWidth: .infinity)
-            .background(Color.white.opacity(configuration.isPressed ? 0.08 : 0.13), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.10)))
+            .background(Color(uiColor: .tertiarySystemGroupedBackground).opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.primary.opacity(0.08)))
     }
 }
