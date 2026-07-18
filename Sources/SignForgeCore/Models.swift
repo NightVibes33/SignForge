@@ -44,6 +44,7 @@ struct SigningKey: Identifiable, Codable, Hashable {
     var label: String
     var algorithm: String
     var fingerprint: String
+    var keychainTag: String? = nil
     var exportable: Bool
     var createdAt = Date()
 }
@@ -52,6 +53,7 @@ struct CertificateRecord: Identifiable, Codable, Hashable {
     var id = UUID()
     var name: String
     var type: CertificateType
+    var remoteID: String? = nil
     var serialNumber: String
     var fingerprint: String
     var expiresAt: Date
@@ -60,6 +62,7 @@ struct CertificateRecord: Identifiable, Codable, Hashable {
 
 struct BundleIDRecord: Identifiable, Codable, Hashable {
     var id = UUID()
+    var remoteID: String? = nil
     var identifier: String
     var name: String
     var capabilities: [String]
@@ -67,6 +70,7 @@ struct BundleIDRecord: Identifiable, Codable, Hashable {
 
 struct DeviceRecord: Identifiable, Codable, Hashable {
     var id = UUID()
+    var remoteID: String? = nil
     var name: String
     var udid: String
     var platform: String
@@ -75,6 +79,7 @@ struct DeviceRecord: Identifiable, Codable, Hashable {
 
 struct ProvisioningProfileRecord: Identifiable, Codable, Hashable {
     var id = UUID()
+    var remoteID: String? = nil
     var name: String
     var uuid: String
     var type: ProfileType
