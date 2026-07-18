@@ -29,13 +29,13 @@ struct CertificatesView: View {
     private func revokeLatest() async {
         guard let cert = store.state.certificates.first else { status = "No certificate"; return }
         guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        guard let p8 = (try? keychain.loadString(account: credential.id.uuidString + ".p8")) ?? nil else { status = "Missing .p8 in Keychain"; return }
         do { try await api.revokeCertificate(cert, credential: credential, privateKeyPEM: p8); store.state.certificates.removeAll { $0.id == cert.id }; store.save(); status = "Revoked" } catch { status = error.localizedDescription }
     }
 
     private func createCertificate() async {
         guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        guard let p8 = (try? keychain.loadString(account: credential.id.uuidString + ".p8")) ?? nil else { status = "Missing .p8 in Keychain"; return }
         let csr = store.state.artifacts.first { $0.kind == .csr }?.detail ?? ""
         do {
             let cert = try await api.createCertificate(type: selectedType, csrPEM: csr, credential: credential, privateKeyPEM: p8)
@@ -86,7 +86,7 @@ struct BundleIDsView: View {
 
     private func authMaterial() -> (AppleCredential, String)? {
         guard let credential = store.state.credentials.first else { status = "Missing credential"; return nil }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return nil }
+        guard let p8 = (try? keychain.loadString(account: credential.id.uuidString + ".p8")) ?? nil else { status = "Missing .p8 in Keychain"; return nil }
         return (credential, p8)
     }
 }
@@ -115,7 +115,7 @@ struct DevicesView: View {
 
     private func register() async {
         guard let credential = store.state.credentials.first else { status = "Missing credential"; return }
-        guard let p8 = try? keychain.loadString(account: credential.id.uuidString + ".p8"), let p8 else { status = "Missing .p8 in Keychain"; return }
+        guard let p8 = (try? keychain.loadString(account: credential.id.uuidString + ".p8")) ?? nil else { status = "Missing .p8 in Keychain"; return }
         do { let device = try await api.registerDevice(name: name, udid: udid, platform: platform, credential: credential, privateKeyPEM: p8); store.state.devices.insert(device, at: 0); store.save(); status = "Registered" } catch { status = error.localizedDescription }
     }
 }
