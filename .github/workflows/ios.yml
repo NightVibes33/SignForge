@@ -15,21 +15,23 @@ jobs:
         run: xcodegen generate
       - name: Build simulator
         run: xcodebuild -scheme SignForge -destination 'platform=iOS Simulator,name=iPhone 17' build
-      - name: Archive unsigned device app
+      - name: Build unsigned device app
         run: |
-          xcodebuild archive \
+          xcodebuild build \
             -scheme SignForge \
             -destination 'generic/platform=iOS' \
-            -archivePath "$PWD/build/SignForge.xcarchive" \
+            -configuration Release \
+            -derivedDataPath "$PWD/build/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            SKIP_INSTALL=NO
+            DEVELOPMENT_TEAM=""
       - name: Package unsigned IPA
         run: |
+          APP_PATH="$PWD/build/DerivedData/Build/Products/Release-iphoneos/SignForge.app"
+          test -d "$APP_PATH"
           mkdir -p "$PWD/build/Payload"
-          cp -R "$PWD/build/SignForge.xcarchive/Products/Applications/SignForge.app" "$PWD/build/Payload/"
+          cp -R "$APP_PATH" "$PWD/build/Payload/"
           cd "$PWD/build"
           zip -qry SignForge-unsigned-ios26-device.ipa Payload
       - name: Upload unsigned IPA
